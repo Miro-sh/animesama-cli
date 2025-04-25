@@ -29,7 +29,7 @@ Un CLI pour voir et regardes les animes de <a href="https://anime-sama.fr">anime
 - [Dependencies](#dependencies)
   - [Ani-Skip](#ani-skip)
 - [FAQ](#faq)
-- [Homies](#homies)
+- [Homies](#another-language)
 - [Contribution Guidelines](./CONTRIBUTING.md)
 - [Disclaimer](./disclaimer.md)
 
@@ -526,18 +526,10 @@ Ani-skip uses the external lua script function of mpv and as such â€“ for now â€
 
 </details>
 
-## Homies
+## Another language
 
-* [animdl](https://github.com/justfoolingaround/animdl): Ridiculously efficient, fast and light-weight (supports most sources: allmanga, zoro ... (Python)
-* [jerry](https://github.com/justchokingaround/jerry): stream anime with anilist tracking and syncing, with discord presence (Shell)
-* [anipy-cli](https://github.com/sdaqo/anipy-cli): ani-cli rewritten in python (Python)
-* [Dantotsu](https://github.com/rebelonion/Dantotsu): Rebirth of Saikou, Best android app for anime/manga/LN with anilist integration (Kotlin)
-* [mangal](https://github.com/metafates/mangal): Download & read manga from any source with anilist sync (Go)
-* [lobster](https://github.com/justchokingaround/lobster): Watch movies and series from the terminal (Shell)
-* [mov-cli](https://github.com/mov-cli/mov-cli): Watch everything from your terminal. (Python)
-* [dra-cla](https://github.com/CoolnsX/dra-cla): ani-cli equivalent for korean dramas (Shell)
-* [redqu](https://github.com/port19x/redqu):  A media centric reddit client (Clojure)
-* [doccli](https://github.com/TowarzyszFatCat/doccli):  A cli to watch anime with POLISH subtitles (Python)
-* [GoAnime](https://github.com/alvarorichard/GoAnime): A CLI tool to browse, play, and download anime in Portuguese(Go)
-* [Curd](https://github.com/Wraient/curd): A CLI tool to watch anime with Anilist, Discord RPC, Skip Intro/Outro/Filler/Recap (Go)
-* [FastAnime](https://github.com/Benex254/FastAnime): browser anime experience from the terminal (Python)
+* [ani-cli](https://github.com/pystardust/ani-cli): Japanese voice with English subtitles and English voice (allmanga)
+* [GoAnime](https://github.com/alvarorichard/GoAnime): Japanese voice with Portuguese subtitles and Portuguese voice
+* [doccli](https://github.com/TowarzyszFatCat/doccli): Japanese voice with Polish subtitles and Polish voice (docchi.pl)
+
+### Original idea [ani-cli](https://github.com/pystardust/ani-cli)
