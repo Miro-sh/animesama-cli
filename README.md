@@ -9,7 +9,7 @@
 </p>
 
 <h3 align="center">
-A cli to browse and watch anime. This tool scrapes the site <a href="https://allmanga.to/">allmanga.</a>
+Un CLI pour voir et regardes les animes de <a href="https://anime-sama.fr">anime-sama.fr</a> (en VF et en VOSTFR).
 </h3>
 
 <h1 align="center">
