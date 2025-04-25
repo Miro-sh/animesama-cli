@@ -1,28 +1,15 @@
 <p align=center>
 <br>
-<a href="http://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
-<a href="#Linux"><img src="https://img.shields.io/badge/os-linux-brightgreen">
-<a href="#MacOS"><img src="https://img.shields.io/badge/os-mac-brightgreen">
-<a href="#Android"><img src="https://img.shields.io/badge/os-android-brightgreen">
-<a href="#Windows"><img src="https://img.shields.io/badge/os-windows-yellowgreen">
-<a href="#iOS"><img src="https://img.shields.io/badge/os-ios-yellow">
-<a href="#Steam-deck"><img src="https://img.shields.io/badge/os-steamdeck-yellow">
+<a href="#Linux"><img src="https://img.shields.io/badge/os-linux-00ff00">
 <br>
 <h1 align="center">
-<a href="https://discord.gg/aqu7GpqVmR"><img src="https://invidget.switchblade.xyz/aqu7GpqVmR"></a>
-<a href="matrix.md"><img src="/.assets/matrix-logo.svg" height=110></a>
+<a href="https://discord.gg/6d68vhhu9u"><img src="https://invidget.switchblade.xyz/6d68vhhu9u?language=fr"></a>
 <br>
-<a href="https://github.com/port19x"><img src="https://img.shields.io/badge/lead-port19x-lightblue"></a>
-<a href="https://github.com/CoolnsX"><img src="https://img.shields.io/badge/maintainer-CoolnsX-blue"></a>
-<a href="https://github.com/justchokingaround"><img src="https://img.shields.io/badge/maintainer-justchokingaround-blue"></a>
-<a href="https://github.com/Derisis13"><img src="https://img.shields.io/badge/maintainer-Derisis13-blue"></a>
-<a href="https://github.com/71zenith"><img src="https://img.shields.io/badge/maintainer-71zenith-blue"></a>
-<a href="https://github.com/ykhan21"><img src="https://img.shields.io/badge/maintainer-ykhan21-blue"></a>
-
+<a href="https://github.com/DictateurMiro"><img src="https://img.shields.io/badge/owner-DictateurMiro-ff6344"></a>
 </p>
 
 <h3 align="center">
-A cli to browse and watch anime (alone AND with friends). This tool scrapes the site <a href="https://allmanga.to/">allmanga.</a>
+A cli to browse and watch anime. This tool scrapes the site <a href="https://allmanga.to/">allmanga.</a>
 </h3>
 
 <h1 align="center">
