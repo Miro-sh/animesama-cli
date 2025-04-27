@@ -3,7 +3,36 @@
 
 import sys
 import curses
+import os
+import locale
 from curses import wrapper
+
+# Configuration de l'encodage pour Windows
+if os.name == 'nt':  # Windows
+    # Force l'encodage UTF-8 pour les caractères spéciaux
+    import subprocess
+    try:
+        # Tente de configurer la console Windows pour utiliser UTF-8
+        subprocess.run(["chcp", "65001"], shell=True, check=False)
+        # Configure l'encodage pour Python
+        os.system("")  # Active le support ANSI sur Windows
+    except Exception:
+        pass
+    
+    # Configure la locale pour Windows
+    try:
+        locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_ALL, '')
+        except:
+            pass
+else:
+    # Configuration pour Linux/Unix
+    try:
+        locale.setlocale(locale.LC_ALL, '')
+    except:
+        pass
 
 # Importer nos modules
 from utils.db_manager import init_db, migrate_history_table
@@ -22,6 +51,7 @@ def main(stdscr):
         
         if len(sys.argv) == 1:
             # Menu principal
+            # Utilise des émojis compatibles entre plateformes
             menu_options = ["🔍 Recherche", "📜 Historique", "📅 Planning", "🔜 À venir"]
             stdscr.clear()
             

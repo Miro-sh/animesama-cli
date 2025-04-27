@@ -1,5 +1,6 @@
 import curses
 import time
+import os
 from utils.db_manager import get_history_entries, delete_history_entry
 from utils.downloader import AnimeDownloader, get_episode_list
 
@@ -8,19 +9,34 @@ def debug_print(message, debug_mode=False):
     if debug_mode:
         print(f"[DEBUG] {message}")
 
+def configure_curses_colors():
+    # Configure les couleurs de manière compatible avec tous les terminaux
+    try:
+        curses.start_color()
+        # Utilise la couleur par défaut du terminal (-1) si disponible
+        # Sinon utilise des couleurs standard
+        try:
+            curses.use_default_colors()
+            curses.init_pair(1, curses.COLOR_RED, -1)
+            curses.init_pair(2, curses.COLOR_BLUE, -1)
+            curses.init_pair(3, curses.COLOR_GREEN, -1)
+            curses.init_pair(4, curses.COLOR_YELLOW, -1)
+        except:
+            # Fallback pour les terminaux qui ne supportent pas -1
+            curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+            curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_BLACK)
+            curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
+            curses.init_pair(4, curses.COLOR_YELLOW, curses.COLOR_BLACK)
+    except:
+        pass  # En cas d'erreur, le programme continuera sans couleurs
+
 def display_menu(stdscr, items, urls=None, delete_callback=None):
     # affiche un menu pour naviguer entre les différentes options
     curses.curs_set(0)
-    curses.use_default_colors()
+    configure_curses_colors()
     stdscr.clear()
     current_row = 0
     scroll_offset = 0
-    
-    curses.start_color()
-    curses.init_pair(1, curses.COLOR_RED, -1) 
-    curses.init_pair(2, curses.COLOR_BLUE, -1)
-    curses.init_pair(3, curses.COLOR_GREEN, -1)
-    curses.init_pair(4, curses.COLOR_YELLOW, -1)  # Added yellow color for titles
 
     max_height, max_width = stdscr.getmaxyx()
     max_display = max_height - 2
@@ -29,6 +45,10 @@ def display_menu(stdscr, items, urls=None, delete_callback=None):
     # Add a title and border
     title = "Anime-Sama Viewer"
     stdscr.addstr(0, max_width//2 - len(title)//2, title, curses.A_BOLD | curses.color_pair(4))
+    
+    # Symboles compatibles avec Windows et Linux
+    up_arrow = "^" if os.name == 'nt' else "↑"
+    down_arrow = "v" if os.name == 'nt' else "↓"
     
     while True:
         stdscr.clear()
@@ -41,7 +61,7 @@ def display_menu(stdscr, items, urls=None, delete_callback=None):
         stdscr.addstr(max_height-1, 0, position_text)
         
         # Add navigation help
-        help_text = "↑/↓: Navigate | Enter: Select | i: Info | Del: Delete"
+        help_text = f"{up_arrow}/{down_arrow}: Navigate | Enter: Select | i: Info | Del: Delete"
         if len(help_text) < max_width:
             stdscr.addstr(max_height-1, max_width - len(help_text) - 1, help_text)
         
@@ -53,7 +73,10 @@ def display_menu(stdscr, items, urls=None, delete_callback=None):
             y = (idx - scroll_offset) + margin_top
             
             if "Dernier Episode" in item:
-                stdscr.attron(curses.color_pair(1))
+                try:
+                    stdscr.attron(curses.color_pair(1))
+                except:
+                    pass
             
             if idx == current_row:
                 stdscr.attron(curses.A_REVERSE)
@@ -63,22 +86,28 @@ def display_menu(stdscr, items, urls=None, delete_callback=None):
                 stdscr.addstr(y, x, item[:max_width-1])
             
             if "Dernier Episode" in item:
-                stdscr.attroff(curses.color_pair(1))
+                try:
+                    stdscr.attroff(curses.color_pair(1))
+                except:
+                    pass
             
             if urls:
-                if "vostfr" in urls[idx].lower():
-                    stdscr.attron(curses.color_pair(2))
-                    stdscr.addstr(y, x + item.lower().find("vostfr"), "VOSTFR")
-                    stdscr.attroff(curses.color_pair(2))
-                elif "vf" in urls[idx].lower():
-                    stdscr.attron(curses.color_pair(3))
-                    stdscr.addstr(y, x + item.lower().find("vf"), "VF")
-                    stdscr.attroff(curses.color_pair(3))
+                try:
+                    if "vostfr" in urls[idx].lower():
+                        stdscr.attron(curses.color_pair(2))
+                        stdscr.addstr(y, x + item.lower().find("vostfr"), "VOSTFR")
+                        stdscr.attroff(curses.color_pair(2))
+                    elif "vf" in urls[idx].lower():
+                        stdscr.attron(curses.color_pair(3))
+                        stdscr.addstr(y, x + item.lower().find("vf"), "VF")
+                        stdscr.attroff(curses.color_pair(3))
+                except:
+                    pass  # En cas d'erreur, continue sans couleurs
         
         if scroll_offset > 0:
-            stdscr.addstr(margin_top-1, max_width-3, "↑")
+            stdscr.addstr(margin_top-1, max_width-3, up_arrow)
         if end_idx < len(items):
-            stdscr.addstr(max_height-1, max_width-3, "↓")
+            stdscr.addstr(max_height-1, max_width-3, down_arrow)
                 
         key = stdscr.getch()
         
@@ -112,6 +141,7 @@ def display_menu(stdscr, items, urls=None, delete_callback=None):
             stdscr.hline(1, 0, curses.ACS_HLINE, max_width)
             
             try:
+                import requests
                 response = requests.get(urls[current_row], headers={"user-agent": "Mozilla/5.0"})
                 response.raise_for_status()
                 page_content = response.text
@@ -143,6 +173,7 @@ def display_history(stdscr, full_check=False):
     # affiche l'historique des animes regardés
     import requests
     import subprocess
+    import platform
     from utils.db_manager import add_to_history
 
     def delete_history_callback(index):
@@ -260,7 +291,20 @@ def display_history(stdscr, full_check=False):
                             
                             print(f"▶️ Lancement de la lecture...")
                             try:
-                                subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                                # Utiliser le lecteur approprié selon le système d'exploitation
+                                if os.name == 'nt':  # Windows
+                                    # Sur Windows, essayer d'abord MPV si installé, sinon ouvrir avec le navigateur par défaut
+                                    try:
+                                        subprocess.run(['mpv', video_url, '--fullscreen'], check=True, shell=True)
+                                    except (subprocess.CalledProcessError, FileNotFoundError):
+                                        # Si MPV n'est pas disponible, utiliser le navigateur par défaut
+                                        print("MPV non trouvé, ouverture avec le navigateur par défaut...")
+                                        import webbrowser
+                                        webbrowser.open(video_url)
+                                else:  # Linux/Unix
+                                    # Sur Linux, essayer d'utiliser MPV
+                                    subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                                
                                 add_to_history(
                                     anime_name=entry['anime_name'],
                                     episode=next_episode_str,
@@ -269,11 +313,23 @@ def display_history(stdscr, full_check=False):
                                     debug=False
                                 )
                             except subprocess.CalledProcessError as e:
-                                print(f"✗ Erreur lors du lancement de MPV")
+                                print(f"✗ Erreur lors du lancement du lecteur vidéo: {e}")
                             except FileNotFoundError:
-                                print("✗ Erreur: MPV n'est pas installé sur votre système")
-                        else:
-                            print("✗ Impossible de récupérer l'URL de la vidéo")
+                                print("✗ Erreur: MPV n'est pas installé. Sur Windows, vous pouvez installer MPV ou le programme essaiera d'utiliser votre navigateur.")
+                                # Tenter d'ouvrir avec le navigateur si MPV n'est pas disponible
+                                try:
+                                    import webbrowser
+                                    print("Tentative d'ouverture avec le navigateur...")
+                                    webbrowser.open(video_url)
+                                    add_to_history(
+                                        anime_name=entry['anime_name'],
+                                        episode=next_episode_str,
+                                        saison=entry['saison'],
+                                        url=selected_url,
+                                        debug=False
+                                    )
+                                except Exception as e:
+                                    print(f"✗ Impossible d'ouvrir la vidéo: {e}")
                     else:
                         print(f"ℹ {entry['anime_name']} - {episode_info} - {entry['saison']} - Dernier Episode")
                 else:
@@ -290,6 +346,14 @@ def display_upcoming_menu(stdscr, items):
     current_row = 0
     scroll_offset = 0
     
+    # Configure les couleurs
+    configure_curses_colors()
+    
+    # Symboles compatibles avec Windows et Linux
+    up_arrow = "^" if os.name == 'nt' else "↑"
+    down_arrow = "v" if os.name == 'nt' else "↓"
+    separator = "-" if os.name == 'nt' else "─"
+    
     max_height, max_width = stdscr.getmaxyx()
     max_display = max_height - 2
     margin_top = 2
@@ -303,10 +367,14 @@ def display_upcoming_menu(stdscr, items):
         end_idx = min(len(items), scroll_offset + max_display)
         
         for idx, (item, color_pair) in enumerate(items[start_idx:end_idx], start=start_idx):
+            # Remplacer les caractères spéciaux si nécessaire
+            if os.name == 'nt':
+                item = item.replace("─", separator)
+                
             x = max_width//2 - len(item)//2
             y = (idx - scroll_offset) + margin_top
             
-            if idx == current_row and "─" not in item:  # Ne pas mettre en surbrillance les séparateurs
+            if idx == current_row and separator not in item:  # Ne pas mettre en surbrillance les séparateurs
                 stdscr.attron(curses.A_REVERSE)
             
             try:
@@ -318,20 +386,20 @@ def display_upcoming_menu(stdscr, items):
             except curses.error:
                 stdscr.addstr(y, x, item[:max_width-1])
             
-            if idx == current_row and "─" not in item:
+            if idx == current_row and separator not in item:
                 stdscr.attroff(curses.A_REVERSE)
         
         if scroll_offset > 0:
-            stdscr.addstr(margin_top-1, max_width-3, "↑")
+            stdscr.addstr(margin_top-1, max_width-3, up_arrow)
         if end_idx < len(items):
-            stdscr.addstr(max_height-1, max_width-3, "↓")
+            stdscr.addstr(max_height-1, max_width-3, down_arrow)
         
         key = stdscr.getch()
         
         if key == curses.KEY_UP:
             # Trouver le prochain élément non-séparateur vers le haut
             new_row = current_row - 1
-            while new_row >= 0 and "─" in items[new_row][0]:
+            while new_row >= 0 and separator in items[new_row][0]:
                 new_row -= 1
             if new_row >= 0:
                 current_row = new_row
@@ -340,14 +408,14 @@ def display_upcoming_menu(stdscr, items):
         elif key == curses.KEY_DOWN:
             # Trouver le prochain élément non-séparateur vers le bas
             new_row = current_row + 1
-            while new_row < len(items) and "─" in items[new_row][0]:
+            while new_row < len(items) and separator in items[new_row][0]:
                 new_row += 1
             if new_row < len(items):
                 current_row = new_row
                 if current_row >= scroll_offset + max_display:
                     scroll_offset = current_row - max_display + 1
         elif key == curses.KEY_ENTER or key in [10, 13]:
-            if "─" not in items[current_row][0]:  # Ne pas sélectionner les séparateurs
+            if separator not in items[current_row][0]:  # Ne pas sélectionner les séparateurs
                 return current_row
         
         stdscr.refresh()

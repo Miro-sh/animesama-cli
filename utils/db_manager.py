@@ -1,14 +1,15 @@
 import sqlite3
 import os
 import pathlib
+from pathlib import Path
 
 # on stocke la base de données sqlite dans le même dossier que le script principal
-SCRIPT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_PATH = os.path.join(SCRIPT_DIR, "history.db")
+SCRIPT_DIR = Path(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DB_PATH = SCRIPT_DIR / "history.db"
 
 def get_db_connection():
     # fonction simple pour se connecter à la bdd
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -44,11 +45,16 @@ def migrate_history_table():
         return
         
     # Check for old data in ~/.config first (for users who used previous version)
-    old_db_path = os.path.join(os.path.expanduser("~"), ".config", "anime-sama", "history.db")
-    if os.path.exists(old_db_path):
+    # Gestion compatible entre Windows et Linux
+    if os.name == 'nt':  # Windows
+        old_db_path = Path(os.environ.get('APPDATA')) / "anime-sama" / "history.db"
+    else:  # Linux/Unix
+        old_db_path = Path.home() / ".config" / "anime-sama" / "history.db"
+    
+    if old_db_path.exists():
         try:
             # Connect to old database
-            old_conn = sqlite3.connect(old_db_path)
+            old_conn = sqlite3.connect(str(old_db_path))
             old_conn.row_factory = sqlite3.Row
             old_cursor = old_conn.cursor()
             

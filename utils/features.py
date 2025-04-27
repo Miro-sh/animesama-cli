@@ -8,12 +8,14 @@ from datetime import datetime
 from utils.downloader import AnimeDownloader, get_episode_list, HEADERS_BASE
 from utils.ui import display_menu, display_upcoming_menu
 from utils.db_manager import add_to_history
+import platform
 
 def fetch_and_display_episodes(stdscr, anime_url):
     # récupère et affiche les épisodes d'un anime
     import requests
     import re
     import subprocess
+    import platform
 
     full_url = f"https://anime-sama.fr/catalogue/{anime_url}"
     stdscr.addstr(f"Fetching episodes from: {full_url}\n")
@@ -39,7 +41,20 @@ def fetch_and_display_episodes(stdscr, anime_url):
                 curses.endwin()
 
                 try:
-                    subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                    system = platform.system()
+                    if system == "Windows":
+                        # Utiliser un player adapté à Windows
+                        try:
+                            # Essayer avec MPV d'abord si disponible
+                            subprocess.run(['mpv', video_url, '--fullscreen'], check=True, shell=True)
+                        except:
+                            # Sinon essayer avec VLC qui est plus courant sur Windows
+                            import webbrowser
+                            webbrowser.open(video_url)
+                            print("Ouverture de la vidéo dans le navigateur par défaut")
+                    else:
+                        # Linux, macOS
+                        subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
 
                     anime_name = anime_url.split('/')[0].replace('-', ' ').title()
                     saison = anime_url.split('/')[1].replace('saison', 'Saison ').capitalize()
@@ -51,9 +66,10 @@ def fetch_and_display_episodes(stdscr, anime_url):
                         debug=False
                     )
                 except subprocess.CalledProcessError as e:
-                    print(f"Erreur lors du lancement de MPV: {e}")
+                    print(f"Erreur lors du lancement du lecteur vidéo: {e}")
                 except FileNotFoundError:
-                    print("Erreur: MPV n'est pas installé sur votre système")
+                    print(f"Erreur: Le lecteur vidéo n'est pas installé sur votre système")
+                    print("Sur Windows, installez MPV ou VLC. Sur Linux, installez mpv.")
             else:
                 stdscr.addstr("Impossible de récupérer l'URL de la vidéo\n")
         else:
@@ -202,6 +218,7 @@ def display_upcoming(stdscr):
 def search_anime(stdscr, query, vf_mode=False, debug_mode=False):
     # recherche et affiche les animes qui correspondent à la requête
     import subprocess
+    import platform
 
     downloader = AnimeDownloader(debug=debug_mode)
     
@@ -311,7 +328,21 @@ def search_anime(stdscr, query, vf_mode=False, debug_mode=False):
                             video_url = 'https:' + video_url
                         
                         try:
-                            subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                            system = platform.system()
+                            if system == "Windows":
+                                # Utiliser un player adapté à Windows
+                                try:
+                                    # Essayer avec MPV d'abord si disponible
+                                    subprocess.run(['mpv', video_url, '--fullscreen'], check=True, shell=True)
+                                except:
+                                    # Sinon essayer avec VLC qui est plus courant sur Windows
+                                    import webbrowser
+                                    webbrowser.open(video_url)
+                                    print("Ouverture de la vidéo dans le navigateur par défaut")
+                            else:
+                                # Linux, macOS
+                                subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                                
                             add_to_history(
                                 anime_name=animes[selected_anime],
                                 episode=f"Episode {episode_num}",
@@ -321,11 +352,12 @@ def search_anime(stdscr, query, vf_mode=False, debug_mode=False):
                             )
                         except subprocess.CalledProcessError as e:
                             if debug_mode:
-                                print(f"[DEBUG] Erreur lors du lancement de MPV: {e}")
+                                print(f"[DEBUG] Erreur lors du lancement du lecteur vidéo: {e}")
                             else:
-                                print(f"✗ Erreur lors du lancement de MPV")
+                                print(f"✗ Erreur lors du lancement du lecteur vidéo")
                         except FileNotFoundError:
-                            print("✗ Erreur: MPV n'est pas installé sur votre système")
+                            print(f"✗ Erreur: Le lecteur vidéo n'est pas installé sur votre système")
+                            print("Sur Windows, installez MPV ou VLC. Sur Linux, installez mpv.")
                     else:
                         print("✗ Impossible de récupérer l'URL de la vidéo")
                 else:
