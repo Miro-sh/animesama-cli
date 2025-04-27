@@ -1,6 +1,6 @@
 <p align=center>
 <br>
-<a href="#Linux"><img src="https://img.shields.io/badge/os-linux-00ff00">
+<a href="#Linux"><img src="https://img.shields.io/badge/os-linux-90ee90">
 <br>
 <h1 align="center">
 <a href="https://discord.gg/6d68vhhu9u"><img src="https://invidget.switchblade.xyz/6d68vhhu9u?language=fr"></a>
@@ -9,7 +9,7 @@
 </p>
 
 <h3 align="center">
-Un CLI pour voir et regardes les animes de <a href="https://anime-sama.fr">anime-sama.fr</a> (en VF et en VOSTFR).
+Un CLI pour voir et regarder des animes de <a href="https://anime-sama.fr">anime-sama.fr</a> (en VF et en VOSTFR).
 </h3>
 
 <h1 align="center">
