@@ -9,6 +9,86 @@ from utils.downloader import AnimeDownloader, get_episode_list, HEADERS_BASE
 from utils.ui import display_menu, display_upcoming_menu
 from utils.db_manager import add_to_history
 import platform
+import os
+
+def get_player_config():
+    # Fonction pour lire la configuration du lecteur à utiliser
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.ini")
+    default_player = 0  # 0 = Navigateur, 1 = MPV, 2 = VLC
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                for line in f:
+                    if line.startswith('default_player='):
+                        value = line.strip().split('=')[1]
+                        if value.isdigit():
+                            default_player = int(value)
+        except:
+            pass
+    
+    return default_player
+
+def play_video(video_url, debug_mode=False):
+    # Fonction pour lire une vidéo avec le lecteur configuré
+    system = platform.system()
+    player_config = get_player_config()
+    
+    if system == "Windows":
+        try:
+            if player_config == 1:  # MPV
+                if os.path.exists(os.path.join(os.environ.get('ProgramFiles', 'C:\\Program Files'), 'mpv', 'mpv.exe')):
+                    batch_path = os.path.join(os.environ.get('USERPROFILE', ''), 'open_with_mpv.bat')
+                    subprocess.run([batch_path, video_url], check=True, shell=True)
+                    print("Lecture de la vidéo avec MPV")
+                    return True
+                else:
+                    if debug_mode:
+                        print("[DEBUG] MPV n'est pas installé, essai de VLC...")
+            
+            if player_config == 2 or (player_config == 1 and not os.path.exists(os.path.join(os.environ.get('ProgramFiles', 'C:\\Program Files'), 'mpv', 'mpv.exe'))):  # VLC ou fallback si MPV pas trouvé
+                vlc_path = os.path.join(os.environ.get('ProgramFiles', 'C:\\Program Files'), 'VideoLAN', 'VLC', 'vlc.exe')
+                if os.path.exists(vlc_path):
+                    batch_path = os.path.join(os.environ.get('USERPROFILE', ''), 'open_with_vlc.bat')
+                    if os.path.exists(batch_path):
+                        subprocess.run([batch_path, video_url], check=True, shell=True)
+                    else:
+                        subprocess.run([vlc_path, video_url], check=True, shell=True)
+                    print("Lecture de la vidéo avec VLC")
+                    return True
+                else:
+                    if debug_mode:
+                        print("[DEBUG] VLC n'est pas installé, utilisation du navigateur...")
+            
+            # Fallback sur le navigateur
+            import webbrowser
+            webbrowser.open(video_url)
+            print("Ouverture de la vidéo dans le navigateur par défaut")
+            return True
+            
+        except Exception as e:
+            if debug_mode:
+                print(f"[DEBUG] Erreur lors du lancement du lecteur: {e}")
+            try:
+                import webbrowser
+                webbrowser.open(video_url)
+                print("Ouverture de la vidéo dans le navigateur par défaut")
+                return True
+            except:
+                return False
+    else:
+        # Linux, macOS
+        try:
+            subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+            return True
+        except:
+            try:
+                import webbrowser
+                webbrowser.open(video_url)
+                print("Ouverture de la vidéo dans le navigateur par défaut")
+                return True
+            except:
+                return False
 
 def fetch_and_display_episodes(stdscr, anime_url):
     # récupère et affiche les épisodes d'un anime
@@ -40,22 +120,10 @@ def fetch_and_display_episodes(stdscr, anime_url):
 
                 curses.endwin()
 
-                try:
-                    system = platform.system()
-                    if system == "Windows":
-                        # Utiliser un player adapté à Windows
-                        try:
-                            # Essayer avec MPV d'abord si disponible
-                            subprocess.run(['mpv', video_url, '--fullscreen'], check=True, shell=True)
-                        except:
-                            # Sinon essayer avec VLC qui est plus courant sur Windows
-                            import webbrowser
-                            webbrowser.open(video_url)
-                            print("Ouverture de la vidéo dans le navigateur par défaut")
-                    else:
-                        # Linux, macOS
-                        subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
-
+                # Utiliser la fonction play_video pour lire la vidéo
+                success = play_video(video_url, debug_mode=False)
+                
+                if success:
                     anime_name = anime_url.split('/')[0].replace('-', ' ').title()
                     saison = anime_url.split('/')[1].replace('saison', 'Saison ').capitalize()
                     add_to_history(
@@ -65,11 +133,9 @@ def fetch_and_display_episodes(stdscr, anime_url):
                         url=full_url,
                         debug=False
                     )
-                except subprocess.CalledProcessError as e:
-                    print(f"Erreur lors du lancement du lecteur vidéo: {e}")
-                except FileNotFoundError:
-                    print(f"Erreur: Le lecteur vidéo n'est pas installé sur votre système")
-                    print("Sur Windows, installez MPV ou VLC. Sur Linux, installez mpv.")
+                else:
+                    print("Erreur lors de la lecture de la vidéo")
+                    print("Vérifiez si MPV ou VLC est correctement installé")
             else:
                 stdscr.addstr("Impossible de récupérer l'URL de la vidéo\n")
         else:
@@ -327,22 +393,9 @@ def search_anime(stdscr, query, vf_mode=False, debug_mode=False):
                         if video_url.startswith('//'):
                             video_url = 'https:' + video_url
                         
-                        try:
-                            system = platform.system()
-                            if system == "Windows":
-                                # Utiliser un player adapté à Windows
-                                try:
-                                    # Essayer avec MPV d'abord si disponible
-                                    subprocess.run(['mpv', video_url, '--fullscreen'], check=True, shell=True)
-                                except:
-                                    # Sinon essayer avec VLC qui est plus courant sur Windows
-                                    import webbrowser
-                                    webbrowser.open(video_url)
-                                    print("Ouverture de la vidéo dans le navigateur par défaut")
-                            else:
-                                # Linux, macOS
-                                subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
-                                
+                        success = play_video(video_url, debug_mode)
+                        
+                        if success:
                             add_to_history(
                                 anime_name=animes[selected_anime],
                                 episode=f"Episode {episode_num}",
@@ -350,14 +403,8 @@ def search_anime(stdscr, query, vf_mode=False, debug_mode=False):
                                 url=season_url,
                                 debug=debug_mode
                             )
-                        except subprocess.CalledProcessError as e:
-                            if debug_mode:
-                                print(f"[DEBUG] Erreur lors du lancement du lecteur vidéo: {e}")
-                            else:
-                                print(f"✗ Erreur lors du lancement du lecteur vidéo")
-                        except FileNotFoundError:
-                            print(f"✗ Erreur: Le lecteur vidéo n'est pas installé sur votre système")
-                            print("Sur Windows, installez MPV ou VLC. Sur Linux, installez mpv.")
+                        else:
+                            print("✗ Erreur lors de la lecture de la vidéo")
                     else:
                         print("✗ Impossible de récupérer l'URL de la vidéo")
                 else:
