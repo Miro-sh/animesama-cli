@@ -3,7 +3,7 @@
 <a href="#Linux"><img src="https://img.shields.io/badge/os-linux-90ee90">
 <br>
 <h1 align="center">
-<a href="https://discord.gg/6d68vhhu9u"><img src="https://invidget.switchblade.xyz/6d68vhhu9u?language=fr"></a>
+<a href="https://discord.gg/MwHAXPpJ8C"><img src="https://invidget.switchblade.xyz/MwHAXPpJ8C?language=fr"></a>
 <br>
 <a href="https://github.com/DictateurMiro"><img src="https://img.shields.io/badge/owner-DictateurMiro-ff6344"></a>
 </p>
