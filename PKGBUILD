@@ -1,6 +1,6 @@
 # Maintainer: Miro
 pkgname=animesama-cli
-pkgver=1.0.3
+pkgver=1.0.4
 pkgrel=1
 pkgdesc="Outil CLI pour Anime-Sama"
 arch=('any')
