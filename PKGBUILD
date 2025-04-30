@@ -13,6 +13,10 @@ sha256sums=('SKIP')
 package() {
   cd "$srcdir/$pkgname-$pkgver"
   
+  # Create necessary directories
+  install -dm755 "$pkgdir/usr/share/animesama-cli"
+  install -dm755 "$pkgdir/usr/bin"
+  
   # Install the Python script
   install -Dm644 anime-sama.py "$pkgdir/usr/share/animesama-cli/anime-sama.py"
   
