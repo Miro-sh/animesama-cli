@@ -1,6 +1,6 @@
 # Maintainer: Miro
 pkgname=animesama-cli
-pkgver=1.0.2
+pkgver=1.0.3
 pkgrel=1
 pkgdesc="Outil CLI pour Anime-Sama"
 arch=('any')
@@ -12,5 +12,14 @@ sha256sums=('SKIP')
 
 package() {
   cd "$srcdir/$pkgname-$pkgver"
-  install -Dm755 anime-sama.py "$pkgdir/usr/bin/animesama-cli"
+  
+  # Install the Python script
+  install -Dm644 anime-sama.py "$pkgdir/usr/share/animesama-cli/anime-sama.py"
+  
+  # Create a wrapper script
+  cat > "$pkgdir/usr/bin/animesama-cli" << 'EOF'
+#!/bin/bash
+exec python3 /usr/share/animesama-cli/anime-sama.py "$@"
+EOF
+  chmod 755 "$pkgdir/usr/bin/animesama-cli"
 }
