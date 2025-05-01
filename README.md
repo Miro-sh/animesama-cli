@@ -43,7 +43,7 @@ A CLI to browse and watch anime from <a href="https://anime-sama.fr">anime-sama.
 
 
 
-*message*
+*Make sure you have all the necessary dependencies installed. For Debian-based distributions, you'll need curl, python3, and mpv. The installation script will handle the rest of the setup process.*
 
 <details><summary>Debian</summary>
 

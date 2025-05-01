@@ -43,7 +43,7 @@ Un outil en ligne de commande pour parcourir et regarder des animes depuis <a hr
 
 
 
-*message*
+*Assurez-vous d'avoir installé toutes les dépendances nécessaires. Pour les distributions basées sur Debian, vous aurez besoin de curl, python3 et mpv. Le script d'installation s'occupera du reste du processus de configuration.*
 
 <details><summary>Debian</summary>
 
