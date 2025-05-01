@@ -9,6 +9,11 @@
 <a href="https://github.com/DictateurMiro"><img src="https://img.shields.io/badge/owner-DictateurMiro-ff6344"></a>
 </p>
 
+<p align="center">
+This repository is also available in <a href="README_french.md"><img src="https://img.shields.io/badge/🇫🇷-French-blue" alt="French"></a>
+</p>
+
+
 <h3 align="center">
 A CLI to browse and watch anime from <a href="https://anime-sama.fr">anime-sama.fr</a> (in French dub and with subtitles).
 </h3>

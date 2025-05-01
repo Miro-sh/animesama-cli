@@ -9,6 +9,10 @@
 <a href="https://github.com/DictateurMiro"><img src="https://img.shields.io/badge/owner-DictateurMiro-ff6344"></a>
 </p>
 
+<p align="center">
+Ce dépôt est également disponible en <a href="README.md"><img src="https://img.shields.io/badge/🇺🇸-Anglais-blue" alt="English"></a>
+</p>
+
 <h3 align="center">
 Un outil en ligne de commande pour parcourir et regarder des animes depuis <a href="https://anime-sama.fr">anime-sama.fr</a> (en version française et avec sous-titres).
 </h3>
