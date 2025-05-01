@@ -19,7 +19,7 @@ A CLI to browse and watch anime from <a href="https://anime-sama.fr">anime-sama.
 
 [showcase.webm](https://user-images.githubusercontent.com/44473782/224679247-0856e652-f187-4865-bbcf-5a8e5cf830da.webm)
 
-## Sommaire
+## Table of Contents
 
 - [Install](#install)
   - [Linux](#first-install)
