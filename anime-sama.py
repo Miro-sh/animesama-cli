@@ -15,7 +15,6 @@ import pathlib
 import argparse
 import asyncio
 
-# Optional textual imports - for TUI mode
 try:
     from textual.app import App, ComposeResult
     from textual.widgets import Header, Footer, Button, Static, ListView, ListItem, Label, Input
@@ -27,10 +26,6 @@ try:
 except ImportError:
     TEXTUAL_AVAILABLE = False
 
-# This file combines both the CLI (anime_sama.py) and the TUI (anime_sama_tui.py) functionality
-# into a single executable script.
-
-# Basic constants
 HEADERS_BASE = {
     "user-agent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
     "accept-language": "en-US,en;q=0.5",
@@ -44,7 +39,6 @@ MENU_ITEMS = [
     ("À venir", "upcoming")
 ]
 
-# Database and history functions
 def get_db_path():
     db_dir = os.path.expanduser("~/.local/share/animesama-cli")
     os.makedirs(db_dir, exist_ok=True)
@@ -120,7 +114,6 @@ def delete_history_entry(entry_id):
     conn.commit()
     conn.close()
 
-# Core utility functions
 def get_seasons(html_content):
     seasons = []
     pattern = r'panneauAnime\("([^"]+)",\s*"([^"]+)"\)'
@@ -165,7 +158,6 @@ def get_episode_list(url):
         print(f"Erreur lors de la requête : {str(e)}")
         return None
 
-# AnimeDownloader class - core functionality
 class AnimeDownloader:
     def __init__(self, debug=False):
         self.session = requests.Session()
@@ -272,7 +264,6 @@ class AnimeDownloader:
             self.debug_print(f"Exception complète: {str(e)}")
             return [], []
 
-# CLI mode functions
 def display_history(full_check=False):
     init_db()
     conn = sqlite3.connect(get_db_path())
@@ -693,7 +684,6 @@ def cli_main(args):
     except Exception as e:
         print(f"Erreur lors de la lecture : {e}")
 
-# TUI mode implementations - only if Textual is available
 if TEXTUAL_AVAILABLE:
     class MenuSelect(Message):
         def __init__(self, sender, index):
@@ -1280,7 +1270,6 @@ if TEXTUAL_AVAILABLE:
             app = AnimeSamaTUI(start_screen=start_screen, search_term=search_term)
             app.run()
 
-# Main function to handle command line arguments
 def main():
     parser = argparse.ArgumentParser(
         description="Anime-sama CLI - Interface CLI et TUI pour anime-sama.fr",
@@ -1300,22 +1289,18 @@ def main():
     
     args = parser.parse_args()
     
-    # Si l'aide est demandée, l'afficher et sortir
     if args.help:
         display_help()
         return
     
-    # Par défaut, on utilise l'interface TUI si disponible
     use_tui = not args.cli and TEXTUAL_AVAILABLE
     
-    # Si l'interface TUI est explicitement demandée mais n'est pas disponible
     if args.textual and not TEXTUAL_AVAILABLE:
         print("Erreur: La librairie Textual n'est pas installée. Impossible d'utiliser le mode TUI.")
         print("Installez-la avec: pip install textual")
         print("Passage en mode CLI...")
         use_tui = False
     
-    # Lancement de l'interface appropriée
     if use_tui:
         tui_main(args)
     else:
