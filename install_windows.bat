@@ -9,10 +9,12 @@ echo.
 :: Set up paths
 set "INSTALL_DIR=%USERPROFILE%\AnimeSamaCLI"
 set "SCRIPT_DIR=%INSTALL_DIR%\scripts"
+set "DB_DIR=%USERPROFILE%\.local\share\animesama-cli"
 
 echo Setting up installation directories...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 if not exist "%SCRIPT_DIR%" mkdir "%SCRIPT_DIR%"
+if not exist "%DB_DIR%" mkdir "%DB_DIR%"
 
 :: Check for Python
 where python >nul 2>&1
@@ -30,6 +32,10 @@ echo.
 echo Installing Python modules...
 %PYTHON_CMD% -m pip install --upgrade pip
 %PYTHON_CMD% -m pip install requests beautifulsoup4 windows-curses
+
+echo.
+echo Installing Textual for TUI interface (optional)...
+%PYTHON_CMD% -m pip install textual
 
 echo.
 echo ================================================
@@ -100,12 +106,12 @@ echo ================================================
 echo.
 
 echo Downloading AnimeSamaCLI...
-curl -L -o "%SCRIPT_DIR%\anime-sama.py" https://raw.githubusercontent.com/DictateurMiro/animesama-cli/master/anime-sama.py
+curl -L -o "%SCRIPT_DIR%\main.py" https://raw.githubusercontent.com/DictateurMiro/animesama-cli/master/main.py
 
 echo Creating launcher script...
 (
 echo @echo off
-echo python "%SCRIPT_DIR%\anime-sama.py" %%*
+echo python "%SCRIPT_DIR%\main.py" %%*
 ) > "%INSTALL_DIR%\animesama-cli.bat"
 
 echo.
@@ -196,6 +202,12 @@ echo  - Pour utiliser les commandes, FERMEZ COMPLÈTEMENT votre terminal et ouvr
 echo  - Vous pouvez utiliser les commandes:
 echo      animesama-cli
 echo      mpv
+echo.
+echo  Fonctionnalités disponibles:
+echo  - Interface TUI (Textual) si vous avez installé 'textual'
+echo  - Mode CLI traditionnel avec l'option --cli
+echo  - Recherche d'anime, historique, et planning
+echo  - Support pour VOSTFR et VF
 echo.
 echo  Si les commandes ne marchent toujours pas:
 echo  1. Utilisez le chemin complet:
