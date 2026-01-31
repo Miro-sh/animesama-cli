@@ -26,8 +26,6 @@ try:
 except ImportError:
     TEXTUAL_AVAILABLE = False
 
-DOMAIN = "anime-sama.fr"
-
 HEADERS_BASE = {
     "user-agent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
     "accept-language": "en-US,en;q=0.5",
@@ -40,6 +38,42 @@ MENU_ITEMS = [
     ("Planning", "planning"),
     ("À venir", "upcoming")
 ]
+
+
+def get_current_domain_name():
+    try:
+        response = requests.get("https://anime-sama.pw/", headers=HEADERS_BASE, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Cherche dans tous les boutons et liens avec classe 'btn' ou 'button'
+        for tag in soup.find_all(['button', 'a']):
+            text = tag.get_text(strip=True)
+            if 'anime-sama' in text and '.' in text:
+                return text
+
+            href = tag.get('href')
+            if href and 'anime-sama' in href:
+                match = re.search(r'https?://([^/]+)', href)
+                if match:
+                    return match.group(1)
+
+        return None
+    except Exception:
+        return None
+
+
+DOMAIN = get_current_domain_name()
+
+
+###Config function
+def check_domain_access():
+    try:
+        response = requests.head(f"https://{DOMAIN}", headers=HEADERS_BASE, timeout=5)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
+IS_DOMAIN_AVAILABLE = check_domain_access()
 
 def get_db_path():
     db_dir = os.path.expanduser("~/.local/share/animesama-cli")
@@ -581,7 +615,7 @@ def cli_main(args):
     print(f"🔍 Recherche de : {query}")
     downloader = AnimeDownloader(debug=args.debug)
     animes, urls = downloader.get_catalogue(query, vf=args.vf)
-    
+
     if not animes:
         print("Aucun anime trouvé.")
         return
@@ -693,9 +727,14 @@ if TEXTUAL_AVAILABLE:
             self.sender = sender
             self.index = index
 
+
     class MainMenu(Static):
         def compose(self) -> ComposeResult:
-            yield Label("Anime-sama CLI (Textual)", id="title")
+            dot_color = "green" if IS_DOMAIN_AVAILABLE else "red"
+            status_text = "dispo" if IS_DOMAIN_AVAILABLE else "indisponible"
+            title = f"[{dot_color}]●[/] {DOMAIN} {status_text} - Anime-sama CLI (Textual)"
+            yield Label(title, markup=True, id="title")
+
             items = [ListItem(Label(text)) for text, _ in MENU_ITEMS]
             self.list_view = ListView(*items, id="menu-list")
             yield self.list_view
