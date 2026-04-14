@@ -39,6 +39,42 @@ MENU_ITEMS = [
     ("À venir", "upcoming")
 ]
 
+
+def get_current_domain_name():
+    try:
+        response = requests.get("https://anime-sama.pw/", headers=HEADERS_BASE, timeout=5)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Cherche dans tous les boutons et liens avec classe 'btn' ou 'button'
+        for tag in soup.find_all(['button', 'a']):
+            text = tag.get_text(strip=True)
+            if 'anime-sama' in text and '.' in text:
+                return text
+
+            href = tag.get('href')
+            if href and 'anime-sama' in href:
+                match = re.search(r'https?://([^/]+)', href)
+                if match:
+                    return match.group(1)
+
+        return None
+    except Exception:
+        return None
+
+
+DOMAIN = get_current_domain_name()
+
+
+###Config function
+def check_domain_access():
+    try:
+        response = requests.head(f"https://{DOMAIN}", headers=HEADERS_BASE, timeout=5)
+        return response.status_code == 200
+    except requests.RequestException:
+        return False
+
+IS_DOMAIN_AVAILABLE = check_domain_access()
+
 def get_db_path():
     db_dir = os.path.expanduser("~/.local/share/animesama-cli")
     os.makedirs(db_dir, exist_ok=True)
@@ -134,7 +170,7 @@ def get_seasons(html_content):
 def get_episode_list(url):
     url = url.replace('https://', '')
     headers = {
-        "host": "anime-sama.fr",
+        "host": DOMAIN,
         "user-agent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/134.0",
         "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "accept-language": "en-US,en;q=0.5",
@@ -216,9 +252,9 @@ class AnimeDownloader:
 
     def get_catalogue(self, query="", vf=False): 
         try:
-            url = "https://anime-sama.fr/catalogue/"
+            url = f"https://{DOMAIN}/catalogue/"
             headers = {
-                "host": "anime-sama.fr",
+                "host": DOMAIN,
                 "connection": "keep-alive",
                 "sec-ch-ua": "\"Not A(Brand\";v=\"8\", \"Chromium\";v=\"132\", \"Google Chrome\";v=\"132\"",
                 "sec-ch-ua-mobile": "?0",
@@ -230,7 +266,7 @@ class AnimeDownloader:
                 "sec-fetch-mode": "navigate",
                 "sec-fetch-user": "?1",
                 "sec-fetch-dest": "document",
-                "referer": "https://anime-sama.fr/catalogue/",
+                "referer": f"https://{DOMAIN}/catalogue/",
                 "accept-language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7"
             }
             querystring = {"search": query, "type[]": "Anime"}
@@ -370,7 +406,7 @@ def display_history(full_check=False):
 
 def afficher_planning():
     print("\n--- Planning des animes (texte) ---")
-    url = "https://anime-sama.fr/planning/"
+    url = f"https://{DOMAIN}/planning/"
     headers = HEADERS_BASE.copy()
     response = requests.get(url, headers=headers)
     html_content = response.text
@@ -412,7 +448,7 @@ def afficher_planning():
         print("Numéro invalide.")
         return
     selected_anime = animes[int(choix)-1]
-    anime_url = f"https://anime-sama.fr/catalogue/{selected_anime[1]}"
+    anime_url = f"https://{DOMAIN}/catalogue/{selected_anime[1]}"
     print(f"URL de la saison : {anime_url}")
     afficher_episodes_saison(anime_url, selected_anime[0], selected_anime[3])
 
@@ -579,7 +615,7 @@ def cli_main(args):
     print(f"🔍 Recherche de : {query}")
     downloader = AnimeDownloader(debug=args.debug)
     animes, urls = downloader.get_catalogue(query, vf=args.vf)
-    
+
     if not animes:
         print("Aucun anime trouvé.")
         return
@@ -691,9 +727,14 @@ if TEXTUAL_AVAILABLE:
             self.sender = sender
             self.index = index
 
+
     class MainMenu(Static):
         def compose(self) -> ComposeResult:
-            yield Label("Anime-sama CLI (Textual)", id="title")
+            dot_color = "green" if IS_DOMAIN_AVAILABLE else "red"
+            status_text = "dispo" if IS_DOMAIN_AVAILABLE else "indisponible"
+            title = f"[{dot_color}]●[/] {DOMAIN} {status_text} - Anime-sama CLI (Textual)"
+            yield Label(title, markup=True, id="title")
+
             items = [ListItem(Label(text)) for text, _ in MENU_ITEMS]
             self.list_view = ListView(*items, id="menu-list")
             yield self.list_view
@@ -881,7 +922,7 @@ if TEXTUAL_AVAILABLE:
             yield Label("Entrée: voir les animes du jour, q: retour menu", id="planning-help")
 
         def get_planning(self):
-            url = "https://anime-sama.fr/planning/"
+            url = f"https://{DOMAIN}/planning/"
             headers = {
                 "user-agent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
                 "accept-language": "en-US,en;q=0.5",
@@ -940,7 +981,7 @@ if TEXTUAL_AVAILABLE:
                 if idx < 0 or idx >= len(animes):
                     return
                 title, url, time, version = animes[idx]
-                season_url = f"https://anime-sama.fr/catalogue/{url}"
+                season_url = f"https://{DOMAIN}/catalogue/{url}"
                 saison_name = f"{time} - {version}" if time or version else version
                 self.app.push_screen(EpisodesScreen(title, saison_name, season_url))
 
@@ -1272,7 +1313,7 @@ if TEXTUAL_AVAILABLE:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Anime-sama CLI - Interface CLI et TUI pour anime-sama.fr",
+        description=f"Anime-sama CLI - Interface CLI et TUI pour {DOMAIN}",
         add_help=False
     )
     parser.add_argument("query", nargs="*", help="Recherche d'anime")
