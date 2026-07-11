@@ -6,6 +6,7 @@ import re
 import sys
 import json
 import sqlite3
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 import os
 import time
@@ -40,35 +41,54 @@ MENU_ITEMS = [
 ]
 
 
+FALLBACK_DOMAIN = "anime-sama.to"
+
+def resolve_final_domain(domain):
+    try:
+        resp = requests.head(f"https://{domain}", headers=HEADERS_BASE, timeout=5, allow_redirects=True)
+        final = urlparse(resp.url).hostname
+        return final if final else domain
+    except requests.RequestException:
+        return domain
+
 def get_current_domain_name():
+    resolved = None
     try:
         response = requests.get("https://anime-sama.pw/", headers=HEADERS_BASE, timeout=5)
         soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Cherche dans tous les boutons et liens avec classe 'btn' ou 'button'
         for tag in soup.find_all(['button', 'a']):
             text = tag.get_text(strip=True)
-            if 'anime-sama' in text and '.' in text:
-                return text
-
+            if 'anime-sama' in text and '.' in text and 'pw' not in text:
+                resolved = text
+                break
             href = tag.get('href')
-            if href and 'anime-sama' in href:
+            if href and 'anime-sama' in href and 'pw' not in href:
                 match = re.search(r'https?://([^/]+)', href)
                 if match:
-                    return match.group(1)
-
-        return None
+                    resolved = match.group(1)
+                    break
     except Exception:
-        return None
+        pass
+
+    if resolved:
+        final = resolve_final_domain(resolved)
+        if final != resolved:
+            resolved = final
+
+    if not resolved:
+        resolved = FALLBACK_DOMAIN
+
+    return resolved
 
 
 DOMAIN = get_current_domain_name()
+if not DOMAIN:
+    DOMAIN = FALLBACK_DOMAIN
 
 
-###Config function
 def check_domain_access():
     try:
-        response = requests.head(f"https://{DOMAIN}", headers=HEADERS_BASE, timeout=5)
+        response = requests.head(f"https://{DOMAIN}", headers=HEADERS_BASE, timeout=5, allow_redirects=True)
         return response.status_code == 200
     except requests.RequestException:
         return False
@@ -211,40 +231,43 @@ class AnimeDownloader:
             response = self.session.get(url, params={"filever": filever})
             response.raise_for_status()
             content = response.text
-            sibnet_links = {}
-            matches = re.finditer(r'https://video\.sibnet\.ru/shell\.php\?videoid=(\d+)', content)
-            sibnet_links = {str(i): match.group(1) for i, match in enumerate(matches, 1)}
-            return sibnet_links
+            embed_links = {}
+            matches = re.finditer(r"var eps\d+\s*=\s*\[([^\]]+)\]", content)
+            for ep_var_match in matches:
+                urls_block = ep_var_match.group(1)
+                vid_urls = re.findall(r"'([^']+)'", urls_block)
+                for i, vid_url in enumerate(vid_urls, 1):
+                    if str(i) not in embed_links:
+                        embed_links[str(i)] = vid_url
+            return embed_links
         except requests.RequestException as e:
             print(f"Erreur lors de la récupération des épisodes : {e}")
             return {}
 
     def get_video_url(self, video_id):
+        embed_url = video_id.replace('vidmoly.to', 'vidmoly.biz').replace('vidmoly.net', 'vidmoly.biz')
         try:
-            url = f"https://video.sibnet.ru/shell.php"
-            print(f"Tentative de récupération de la vidéo {video_id}...")
-            response = self.session.get(url, params={"videoid": video_id})
+            print(f"Tentative de récupération de la vidéo...")
+            response = self.session.get(embed_url, headers={
+                **HEADERS_BASE,
+                "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "referer": f"https://{DOMAIN}/",
+            })
             response.raise_for_status()
             html_content = response.text
-            print("Recherche du pattern dans le contenu HTML...")
-            match = re.search(r'player\.src\(\[\{src: "/v/([^/]+)/', html_content)
+            match = re.search(r"file:\s*'([^']+\.m3u8[^']*)'", html_content)
             if match:
-                video_hash = match.group(1)
-                url_sibnet = f"https://video.sibnet.ru/v/{video_hash}/{video_id}.mp4"
-                print(f"URL construite : {url_sibnet}")
-                headers_sibnet = {
-                    **HEADERS_BASE,
-                    "range": "bytes=0-",
-                    "accept-encoding": "identity",
-                    "referer": "https://video.sibnet.ru/",
-                }
-                response_sibnet = self.session.get(url_sibnet, headers=headers_sibnet, allow_redirects=False)
-                if response_sibnet.status_code == 302:
-                    return response_sibnet.headers['Location']
-                else:
-                    print(f"Status code inattendu : {response_sibnet.status_code}")
-            else:
-                print("Pattern non trouvé dans le HTML")
+                m3u8_url = match.group(1)
+                m3u8_url = m3u8_url.replace('&amp;', '&')
+                print(f"URL m3u8 trouvée.")
+                return m3u8_url
+            match = re.search(r'sources:\s*\[\s*\{\s*file:\s*"([^"]+)"', html_content)
+            if match:
+                m3u8_url = match.group(1)
+                m3u8_url = m3u8_url.replace('&amp;', '&')
+                print(f"URL m3u8 trouvée.")
+                return m3u8_url
+            print("Pattern m3u8 non trouvé dans le HTML")
             return None
         except requests.RequestException as e:
             print(f"Erreur lors de la récupération de l'URL vidéo : {e}")
@@ -282,14 +305,22 @@ class AnimeDownloader:
             soup = BeautifulSoup(response.text, 'html.parser')
             animes = []
             urls = []
+            seen_urls = set()
             for card in soup.find_all('a', href=True):
-                titre = None
-                titre_tag = card.find('h1', class_='text-white font-bold uppercase text-md line-clamp-2')
+                href = card['href']
+                if '/catalogue/' not in href or href in seen_urls:
+                    continue
+                if href == '/catalogue/' or href == '/catalogue':
+                    continue
+                titre_tag = card.find('h2', class_='card-title')
+                if not titre_tag:
+                    titre_tag = card.find('h1', class_='text-white font-bold uppercase text-md line-clamp-2')
                 if titre_tag:
                     titre = titre_tag.text.strip()
-                if titre and 'catalogue' in card['href']:
-                    animes.append(titre)
-                    urls.append(card['href'])
+                    if titre:
+                        seen_urls.add(href)
+                        animes.append(titre)
+                        urls.append(href)
             if vf:
                 urls = [link.replace("vostfr", "vf") for link in urls]
             self.debug_print(f"Nombre de titres trouvés: {len(animes)}")
@@ -411,7 +442,6 @@ def afficher_planning():
     response = requests.get(url, headers=headers)
     html_content = response.text
     day_pattern = r'<h2 class="titreJours[^>]*>([^<]+)</h2>'
-    anime_pattern = r'cartePlanningAnime\("([^"]+)", "([^"]+)", "[^"]+", "([^"]+)", "[^"]*", "([^"]+)"\);'
     days = re.findall(day_pattern, html_content)
     planning = {day.strip(): [] for day in days}
     day_sections = re.split(day_pattern, html_content)
@@ -419,10 +449,17 @@ def afficher_planning():
         current_day = day_sections[i].strip()
         day_content = day_sections[i + 1]
         if current_day in planning:
-            matches = re.findall(anime_pattern, day_content)
-            for match in matches:
-                title, url, time, version = match
-                planning[current_day].append((title, url, time, version))
+            cards = re.findall(
+                r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<h3[^>]*>([^<]+)</h3>',
+                day_content, re.DOTALL
+            )
+            if not cards:
+                cards = re.findall(
+                    r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<img[^>]*alt="([^"]*)"',
+                    day_content, re.DOTALL
+                )
+            for card_url, card_title in cards:
+                planning[current_day].append((card_title.strip(), card_url.strip(), "", ""))
     days_list = list(planning.keys())
     for i, day in enumerate(days_list, 1):
         print(f"{i}. {day}")
@@ -439,7 +476,7 @@ def afficher_planning():
         print("Aucun anime ce jour.")
         return
     for i, (title, url, time, version) in enumerate(animes, 1):
-        print(f"{i}. {title} - {time} - {version}")
+        print(f"{i}. {title}")
     print("0. Retour")
     choix = input("Numéro de l'anime : ").strip()
     if choix == "0":
@@ -448,9 +485,9 @@ def afficher_planning():
         print("Numéro invalide.")
         return
     selected_anime = animes[int(choix)-1]
-    anime_url = f"https://{DOMAIN}/catalogue/{selected_anime[1]}"
+    anime_url = f"https://{DOMAIN}{selected_anime[1]}"
     print(f"URL de la saison : {anime_url}")
-    afficher_episodes_saison(anime_url, selected_anime[0], selected_anime[3])
+    afficher_episodes_saison(anime_url, selected_anime[0], "")
 
 def display_upcoming():
     print("\n--- Prochains épisodes à sortir (texte) ---")
@@ -932,7 +969,6 @@ if TEXTUAL_AVAILABLE:
                 response = requests.get(url, headers=headers)
                 html_content = response.text
                 day_pattern = r'<h2 class="titreJours[^>]*>([^<]+)</h2>'
-                anime_pattern = r'cartePlanningAnime\("([^"]+)", "([^"]+)", "[^"]+", "([^"]+)", "[^"]*", "([^"]+)"\);'
                 import re
                 days = re.findall(day_pattern, html_content)
                 planning = {day.strip(): [] for day in days}
@@ -941,10 +977,17 @@ if TEXTUAL_AVAILABLE:
                     current_day = day_sections[i].strip()
                     day_content = day_sections[i + 1]
                     if current_day in planning:
-                        matches = re.findall(anime_pattern, day_content)
-                        for match in matches:
-                            title, url, time, version = match
-                            planning[current_day].append((title, url, time, version))
+                        cards = re.findall(
+                            r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<h3[^>]*>([^<]+)</h3>',
+                            day_content, re.DOTALL
+                        )
+                        if not cards:
+                            cards = re.findall(
+                                r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<img[^>]*alt="([^"]*)"',
+                                day_content, re.DOTALL
+                            )
+                        for card_url, card_title in cards:
+                            planning[current_day].append((card_title.strip(), card_url.strip(), "", ""))
                 days_list = list(planning.keys())
                 return days_list, planning
             except Exception:
@@ -967,7 +1010,7 @@ if TEXTUAL_AVAILABLE:
                 if not animes:
                     self.anime_list = ListView(ListItem(Label("Aucun anime ce jour.")), id="anime-list")
                 else:
-                    items = [ListItem(Label(f"{title} - {time} - {version}")) for (title, url, time, version) in animes]
+                    items = [ListItem(Label(f"{title}")) for (title, url, time, version) in animes]
                     self.anime_list = ListView(*items, id="anime-list")
                 self.mount(self.anime_list)
                 self.set_focus(self.anime_list)
@@ -981,7 +1024,7 @@ if TEXTUAL_AVAILABLE:
                 if idx < 0 or idx >= len(animes):
                     return
                 title, url, time, version = animes[idx]
-                season_url = f"https://{DOMAIN}/catalogue/{url}"
+                season_url = f"https://{DOMAIN}{url}" if url.startswith('/') else f"https://{DOMAIN}/catalogue/{url}"
                 saison_name = f"{time} - {version}" if time or version else version
                 self.app.push_screen(EpisodesScreen(title, saison_name, season_url))
 
@@ -997,8 +1040,36 @@ if TEXTUAL_AVAILABLE:
 
     class UpcomingScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("En cours de développement ...", id="upcoming-dev")
-            yield Label("q ou Échap : retour menu", id="upcoming-help")
+            yield Label("Prochains épisodes a sortir :", id="upcoming-title")
+            items = self.get_upcoming()
+            if not items:
+                yield Label("Aucun resultat trouve.", id="upcoming-empty")
+            else:
+                self.upcoming_list = ListView(*items, id="upcoming-list")
+                yield self.upcoming_list
+            yield Label("q ou Echap : retour menu", id="upcoming-help")
+
+        def get_upcoming(self):
+            try:
+                url = "https://animecountdown.com/upcoming"
+                headers = HEADERS_BASE.copy()
+                response = requests.get(url, headers=headers)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                anime_list = soup.find_all('a', class_='countdown-content-trending-item')
+                display_items = []
+                for anime in anime_list:
+                    anime_title = anime.find('countdown-content-trending-item-title').text.strip()
+                    anime_episode = anime.find('countdown-content-trending-item-desc').text.strip()
+                    display_items.append(ListItem(Label(f"{anime_title} - {anime_episode}")))
+                return display_items
+            except Exception:
+                return []
+
+        def on_mount(self):
+            if hasattr(self, "upcoming_list"):
+                self.upcoming_list.index = 0
+                self.set_focus(self.upcoming_list)
+
         def key_q(self):
             self.app.pop_screen()
         def key_escape(self):
