@@ -245,29 +245,77 @@ class AnimeDownloader:
             return {}
 
     def get_video_url(self, video_id):
-        embed_url = video_id.replace('vidmoly.to', 'vidmoly.biz').replace('vidmoly.net', 'vidmoly.biz')
         try:
-            print(f"Tentative de récupération de la vidéo...")
-            response = self.session.get(embed_url, headers={
+            print(f"Tentative de recuperation de la video...")
+
+            if 'sibnet.ru' in video_id:
+                vid_match = re.search(r'videoid=(\d+)', video_id)
+                if vid_match:
+                    return self._get_sibnet_url(vid_match.group(1))
+
+            if 'vidmoly.to' in video_id:
+                video_id = video_id.replace('vidmoly.to', 'vidmoly.biz')
+            video_id = video_id.replace('vidmoly.net', 'vidmoly.biz')
+
+            response = self.session.get(video_id, headers={
                 **HEADERS_BASE,
                 "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "referer": f"https://{DOMAIN}/",
             })
             response.raise_for_status()
             html_content = response.text
+
             match = re.search(r"file:\s*'([^']+\.m3u8[^']*)'", html_content)
             if match:
-                m3u8_url = match.group(1)
-                m3u8_url = m3u8_url.replace('&amp;', '&')
-                print(f"URL m3u8 trouvée.")
+                m3u8_url = match.group(1).replace('&amp;', '&')
+                print(f"URL m3u8 trouvee.")
                 return m3u8_url
+
             match = re.search(r'sources:\s*\[\s*\{\s*file:\s*"([^"]+)"', html_content)
             if match:
-                m3u8_url = match.group(1)
-                m3u8_url = m3u8_url.replace('&amp;', '&')
-                print(f"URL m3u8 trouvée.")
+                m3u8_url = match.group(1).replace('&amp;', '&')
+                print(f"URL m3u8 trouvee.")
                 return m3u8_url
-            print("Pattern m3u8 non trouvé dans le HTML")
+
+            match = re.search(r'(https?://[^\s"\']+\.mp4[^\s"\']*)', html_content)
+            if match:
+                mp4_url = match.group(1).replace('&amp;', '&')
+                print(f"URL mp4 directe trouvee.")
+                return mp4_url
+
+            print(f"Erreur : aucun flux video trouve dans l'embed ({len(html_content)} octets)")
+            return None
+        except requests.RequestException as e:
+            print(f"Erreur lors de la recuperation de l'URL video : {e}")
+            return None
+
+    def _get_sibnet_url(self, video_id):
+        try:
+            url = "https://video.sibnet.ru/shell.php"
+            response = self.session.get(url, params={"videoid": video_id})
+            response.raise_for_status()
+            html_content = response.text
+            match = re.search(r'player\.src\(\[\{src: "/v/([^/]+)/', html_content)
+            if match:
+                video_hash = match.group(1)
+                url_sibnet = f"https://video.sibnet.ru/v/{video_hash}/{video_id}.mp4"
+                headers_sibnet = {
+                    **HEADERS_BASE,
+                    "range": "bytes=0-",
+                    "accept-encoding": "identity",
+                    "referer": "https://video.sibnet.ru/",
+                }
+                response_sibnet = self.session.get(url_sibnet, headers=headers_sibnet, allow_redirects=False)
+                if response_sibnet.status_code == 302:
+                    print(f"URL sibnet trouvee.")
+                    return response_sibnet.headers['Location']
+                else:
+                    print(f"Status code sibnet inattendu : {response_sibnet.status_code}")
+            else:
+                print("Pattern sibnet non trouve dans le HTML")
+            return None
+        except requests.RequestException as e:
+            print(f"Erreur sibnet : {e}")
             return None
         except requests.RequestException as e:
             print(f"Erreur lors de la récupération de l'URL vidéo : {e}")

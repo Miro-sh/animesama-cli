@@ -3,8 +3,6 @@
   <a href="#-linux"><img src="https://img.shields.io/badge/os-linux-90ee90" alt="Linux"></a>
   <a href="#-windows"><img src="https://img.shields.io/badge/os-windows-90ee90" alt="Windows"></a>
   <br><br>
-  
-  <a href="https://github.com/Miro-sh"><img src="https://img.shields.io/badge/owner-Miro--sh-ff6344" alt="Owner"></a>
 </p>
 
 <p align="center">
