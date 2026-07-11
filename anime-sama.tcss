@@ -1,0 +1,182 @@
+/* ── Anime-sama TUI Theme ────────────────────────────────────
+ * Dark anime aesthetic using Textual built-in color system
+ * Accent: cyan/teal primary, purple secondary
+ * ──────────────────────────────────────────────────────────── */
+
+/* ═══════════ Override default theme colors ═══════════ */
+* {
+    $primary: #00bcd4;
+    $secondary: #7c4dff;
+    $accent: #e040fb;
+    $error: #e53935;
+    $success: #4caf50;
+    $warning: #ff9800;
+    $surface: #0a0e17;
+    $panel: #0d1117;
+    $boost: #1a2035;
+    $text: #e1e4e8;
+    $text-muted: #6e7681;
+    scrollbar-size: 1 1;
+}
+
+/* ═══════════ Header ═══════════ */
+Header {
+    background: $panel;
+    border-bottom: solid $primary-darken-3;
+}
+
+/* ═══════════ Footer ═══════════ */
+Footer {
+    background: $panel;
+    border-top: solid $primary-darken-3;
+}
+
+/* ═══════════ Screen ═══════════ */
+Screen {
+    background: $surface;
+}
+
+/* ═══════════ Main Container ═══════════ */
+#main-container {
+    align: center middle;
+    width: 100%;
+    height: 100%;
+}
+
+/* ═══════════ Domain Status Bar ═══════════ */
+#title {
+    width: 100%;
+    content-align: center middle;
+    padding: 1 0;
+    text-style: bold;
+    background: $panel;
+}
+
+/* ═══════════ Main Menu List ═══════════ */
+#menu-list {
+    width: 36;
+    height: auto;
+    border: thick $primary-darken-3;
+    background: $panel;
+    margin: 2 0;
+}
+
+#menu-list > ListItem {
+    padding: 1 2;
+}
+
+#menu-list > ListItem.--highlight {
+    background: $primary-darken-1 40%;
+    color: $primary-lighten-2;
+    text-style: bold;
+}
+
+/* ═══════════ Screen Titles ═══════════ */
+#history-title,
+#planning-title,
+#upcoming-title,
+#episodes-title,
+#anime-info-title,
+#search-title {
+    width: 100%;
+    padding: 1 2;
+    text-style: bold;
+    color: $primary-lighten-2;
+    background: $panel;
+    border-bottom: solid $primary-darken-3;
+}
+
+/* ═══════════ Subtitles ═══════════ */
+#version-title {
+    padding: 0 2;
+    color: $text-muted;
+    text-style: italic;
+}
+
+#anime-version,
+#anime-info-url {
+    padding: 0 2;
+    color: $text-muted;
+    text-style: italic;
+}
+
+/* ═══════════ Search Input ═══════════ */
+#search-input {
+    margin: 1 2;
+    border: solid $primary-darken-2;
+    background: $panel;
+    padding: 0 1;
+}
+
+#search-input:focus {
+    border: solid $primary;
+}
+
+#search-result {
+    padding: 0 2;
+    color: $text-muted;
+}
+
+/* ═══════════ List Views (general) ═══════════ */
+ListView {
+    margin: 1 2;
+    border: solid $primary-darken-3;
+    background: $surface;
+    height: auto;
+    max-height: 100%;
+}
+
+ListView > ListItem {
+    padding: 0 1;
+}
+
+ListView > ListItem.--highlight {
+    background: $primary-darken-1 30%;
+    color: $primary-lighten-2;
+    text-style: bold;
+}
+
+/* ═══════════ Help / Status Bar ═══════════ */
+#history-help,
+#planning-help,
+#upcoming-help,
+#episodes-help,
+#version-help,
+#anime-info-help,
+#search-help {
+    width: 100%;
+    padding: 0 2;
+    color: $text-muted;
+    background: $panel;
+    border-top: solid $primary-darken-3;
+    dock: bottom;
+}
+
+/* ═══════════ Empty States ═══════════ */
+#history-empty,
+#planning-empty,
+#upcoming-empty,
+#episodes-empty,
+#anime-info-noseason {
+    width: 100%;
+    padding: 3 2;
+    content-align: center middle;
+    color: $text-muted;
+    text-style: italic;
+}
+
+/* ═══════════ Scrollbars ═══════════ */
+Scrollbar {
+    scrollbar-color: $primary-darken-3;
+    scrollbar-color-hover: $primary-darken-2;
+    scrollbar-color-active: $primary;
+}
+
+/* ═══════════ Planning double-list ═══════════ */
+#planning-day-list {
+    margin: 1 2;
+}
+
+#anime-list {
+    border-color: $secondary-darken-2;
+}

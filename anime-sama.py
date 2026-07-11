@@ -815,12 +815,10 @@ if TEXTUAL_AVAILABLE:
 
     class MainMenu(Static):
         def compose(self) -> ComposeResult:
-            dot_color = "green" if IS_DOMAIN_AVAILABLE else "red"
-            status_text = "dispo" if IS_DOMAIN_AVAILABLE else "indisponible"
-            title = f"[{dot_color}]●[/] {DOMAIN} {status_text} - Anime-sama CLI (Textual)"
-            yield Label(title, markup=True, id="title")
-
-            items = [ListItem(Label(text)) for text, _ in MENU_ITEMS]
+            items = [
+                ListItem(Label(f"  {emoji}  {text}"))
+                for (text, _), emoji in zip(MENU_ITEMS, ["🔍", "⏱ ", "📅", "🆕"])
+            ]
             self.list_view = ListView(*items, id="menu-list")
             yield self.list_view
 
@@ -832,25 +830,35 @@ if TEXTUAL_AVAILABLE:
 
     class HistoryScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("Historique :", id="history-title")
+            yield Label("📺  Historique", id="history-title")
             self.entries = get_history_entries()
             if not self.entries:
-                yield Label("Aucun historique trouvé.", id="history-empty")
+                yield Label("Aucun anime dans l'historique.\nLance un episode pour commencer.", id="history-empty")
+                yield Label("[bold]Entrée[/] lancer   [bold]d[/] supprimer   [bold]q[/] retour", id="history-help")
                 return
             items = []
             for i, entry in enumerate(self.entries, 1):
                 anime_name, episode, saison = entry[1:4]
-                label = f"{anime_name} - {episode} - {saison}"
-                items.append(ListItem(Label(label)))
+                label = f" {anime_name}  [dim]{episode}[/]  [italic $accent]{saison}[/]"
+                items.append(ListItem(Label(label, markup=True)))
             self.list_view = ListView(*items, id="history-list")
             yield self.list_view
-            self.status_label = Label("Entrée: relire l'épisode suivant, d: supprimer, q: retour menu", id="history-help")
+            self.status_label = Label("", id="history-help")
             yield self.status_label
 
         def on_mount(self):
             if hasattr(self, "list_view"):
                 self.list_view.index = 0
                 self.set_focus(self.list_view)
+            self.update_help()
+
+        def update_help(self, text=""):
+            if not hasattr(self, "status_label"):
+                return
+            if text:
+                self.status_label.update(text)
+            else:
+                self.status_label.update("[bold]Entrée[/] reprendre   [bold]d[/] supprimer   [bold]q[/] retour")
 
         def on_list_view_selected(self, event):
             if hasattr(self, "list_view") and event.control is self.list_view:
@@ -864,15 +872,15 @@ if TEXTUAL_AVAILABLE:
                 if match:
                     current_ep = int(match.group(1))
                 else:
-                    self.status_label.update("Impossible de déterminer l'épisode courant.")
+                    self.update_help("[red]Impossible de determiner l'episode courant.[/]")
                     return
                 filever = get_episode_list(url)
                 if not filever:
-                    self.status_label.update("Impossible de récupérer la liste des épisodes.")
+                    self.update_help("[red]Impossible de recuperer la liste des episodes.[/]")
                     return
                 episodes = AnimeDownloader().get_anime_episode(url, filever)
                 if not episodes:
-                    self.status_label.update("Aucun épisode trouvé.")
+                    self.update_help("[red]Aucun episode trouve.[/]")
                     return
                 ep_keys = list(episodes.keys())
                 ep_keys_int = [int(e) for e in ep_keys if e.isdigit()]
@@ -883,17 +891,17 @@ if TEXTUAL_AVAILABLE:
                         next_ep = ep
                         break
                 if next_ep is None:
-                    self.status_label.update("Déjà au dernier épisode.")
+                    self.update_help("[bold]Deja au dernier episode.[/]")
                     return
                 video_id = episodes[str(next_ep)]
-                self.status_label.update(f"Récupération de l'épisode {next_ep}...")
+                self.update_help(f"Recuperation de l'episode {next_ep}...")
                 video_url = AnimeDownloader().get_video_url(video_id)
                 if not video_url:
-                    self.status_label.update("Impossible de récupérer l'URL de la vidéo.")
+                    self.update_help("[red]Impossible de recuperer l'URL de la video.[/]")
                     return
                 if video_url.startswith('//'):
                     video_url = 'https:' + video_url
-                self.status_label.update(f"Lecture de l'épisode {next_ep} avec mpv...")
+                self.update_help(f"Lecture de l'episode {next_ep} avec mpv...")
                 self.app.pop_screen()
                 try:
                     subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
@@ -995,16 +1003,17 @@ if TEXTUAL_AVAILABLE:
             
     class PlanningScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("Planning des animes :", id="planning-title")
+            yield Label("📅  Planning", id="planning-title")
             self.days, self.planning = self.get_planning()
             if not self.days:
-                yield Label("Aucun planning trouvé.", id="planning-empty")
+                yield Label("Aucun planning trouve.", id="planning-empty")
+                yield Label("[bold]q[/] retour", id="planning-help")
                 return
-            items = [ListItem(Label(day)) for day in self.days]
+            items = [ListItem(Label(f"  {day.strip()}")) for day in self.days]
             self.day_list = ListView(*items, id="planning-day-list")
             yield self.day_list
             self.anime_list = None
-            yield Label("Entrée: voir les animes du jour, q: retour menu", id="planning-help")
+            yield Label("[bold]Entree[/] voir   [bold]q[/] retour", id="planning-help")
 
         def get_planning(self):
             url = f"https://{DOMAIN}/planning/"
@@ -1088,14 +1097,14 @@ if TEXTUAL_AVAILABLE:
 
     class UpcomingScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("Prochains épisodes a sortir :", id="upcoming-title")
+            yield Label("🆕  Prochains episodes", id="upcoming-title")
             items = self.get_upcoming()
             if not items:
                 yield Label("Aucun resultat trouve.", id="upcoming-empty")
             else:
                 self.upcoming_list = ListView(*items, id="upcoming-list")
                 yield self.upcoming_list
-            yield Label("q ou Echap : retour menu", id="upcoming-help")
+            yield Label("[bold]q[/] retour", id="upcoming-help")
 
         def get_upcoming(self):
             try:
@@ -1133,15 +1142,16 @@ if TEXTUAL_AVAILABLE:
             self.episodes_dict = {}
             self.status_label = None
         def compose(self) -> ComposeResult:
-            yield Label(f"{self.anime_name} - {self.season_name}", id="episodes-title")
+            yield Label(f"🎬  {self.anime_name}", id="episodes-title")
+            yield Label(f"  {self.season_name}", id="anime-version")
             self.episodes_dict = self.get_episodes()
             if not self.episodes_dict:
-                yield Label("Aucun épisode trouvé.", id="episodes-empty")
+                yield Label("Aucun episode trouve.", id="episodes-empty")
             else:
-                items = [ListItem(Label(f"Episode {ep}")) for ep in self.episodes_dict.keys()]
+                items = [ListItem(Label(f"  Episode {ep}")) for ep in self.episodes_dict.keys()]
                 self.episode_list = ListView(*items, id="episode-list")
                 yield self.episode_list
-            self.status_label = Label("Entrée: lancer l'épisode avec mpv, q ou Échap : retour", id="episodes-help")
+            self.status_label = Label("[bold]Entree[/] lancer   [bold]q[/] retour", id="episodes-help")
             yield self.status_label
         def get_episodes(self):
             filever = get_episode_list(self.season_url)
@@ -1159,18 +1169,18 @@ if TEXTUAL_AVAILABLE:
                 if 0 <= idx < len(ep_keys):
                     ep = ep_keys[idx]
                     video_id = self.episodes_dict[ep]
-                    self.status_label.update(f"Récupération de l'épisode {ep}...")
+                    self.status_label.update(f"[bold]Recuperation de l'episode {ep}...[/]")
                     video_url = AnimeDownloader().get_video_url(video_id)
                     if not video_url:
-                        self.status_label.update("Impossible de récupérer l'URL de la vidéo.")
+                        self.status_label.update("[red]Impossible de recuperer l'URL de la video.[/]")
                         return
                     if video_url.startswith('//'):
                         video_url = 'https:' + video_url
-                    self.status_label.update(f"Lecture de l'épisode {ep} avec mpv...")
+                    self.status_label.update(f"[bold]Lecture de l'episode {ep} avec mpv...[/]")
                     self.app.pop_screen()
                     try:
                         subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
-                        self.status_label.update(f"Lecture de l'épisode {ep} terminée.")
+                        self.status_label.update("[green]Lecture terminee.[/]")
                         saison = self.season_name
                         if "vostfr" in self.season_url.lower():
                             version_str = "VOSTFR"
@@ -1188,9 +1198,9 @@ if TEXTUAL_AVAILABLE:
                             debug=False
                         )
                     except FileNotFoundError:
-                        self.status_label.update("Erreur : mpv n'est pas installé.")
+                        self.status_label.update("[red]Erreur : mpv n'est pas installe.[/]")
                     except Exception as e:
-                        self.status_label.update(f"Erreur lors de la lecture : {e}")
+                        self.status_label.update(f"[red]Erreur lors de la lecture : {e}[/]")
         def key_q(self):
             self.app.pop_screen()
         def key_escape(self):
@@ -1204,11 +1214,12 @@ if TEXTUAL_AVAILABLE:
             self.versions = versions
 
         def compose(self) -> ComposeResult:
-            yield Label(f"Sélectionnez la version pour : {self.anime_name}", id="version-title")
-            items = [ListItem(Label(label)) for label, url in self.versions]
+            yield Label(f"🎬  {self.anime_name}", id="episodes-title")
+            yield Label("Choisis la version", id="version-title")
+            items = [ListItem(Label(f"  {label}")) for label, url in self.versions]
             self.version_list = ListView(*items, id="version-list")
             yield self.version_list
-            yield Label("Entrée: valider, q ou Échap: retour", id="version-help")
+            yield Label("[bold]Entree[/] valider   [bold]q[/] retour", id="version-help")
 
         def on_mount(self):
             self.version_list.index = 0
@@ -1262,18 +1273,18 @@ if TEXTUAL_AVAILABLE:
 
             if len(versions) == 1:
                 label = list(versions.keys())[0]
-                yield Label(f"Version : {label}", id="anime-version")
+                yield Label(f"  Version : {label}", id="anime-version")
 
-            yield Label(f"Anime sélectionné : {self.anime_name}", id="anime-info-title")
-            yield Label(f"URL : {self.anime_url}", id="anime-info-url")
+            yield Label(f"🎬  {self.anime_name}", id="anime-info-title")
+            yield Label(f"  {self.anime_url}", id="anime-info-url")
             self.seasons = seasons
             if not self.seasons:
-                yield Label("Aucune saison trouvée.", id="anime-info-noseason")
+                yield Label("Aucune saison trouvee.", id="anime-info-noseason")
             else:
-                items = [ListItem(Label(season['name'])) for season in self.seasons]
+                items = [ListItem(Label(f"  {season['name']}")) for season in self.seasons]
                 self.season_list = ListView(*items, id="season-list")
                 yield self.season_list
-                yield Label("Entrée: sélectionner la saison, q ou Échap : retour", id="anime-info-help")
+                yield Label("[bold]Entree[/] choisir   [bold]q[/] retour", id="anime-info-help")
         def get_seasons(self):
             try:
                 response = requests.get(self.anime_url, headers={
@@ -1305,15 +1316,15 @@ if TEXTUAL_AVAILABLE:
             super().__init__()
             self.search_term = search_term
         def compose(self) -> ComposeResult:
-            yield Label("Recherche d'anime :", id="search-title")
-            self.input = Input(placeholder="Tapez le nom de l'anime et Entrée...", id="search-input")
+            yield Label("🔍  Recherche", id="search-title")
+            self.input = Input(placeholder="Tape le nom de l'anime...", id="search-input")
             yield self.input
             self.result_label = Label("", id="search-result")
             yield self.result_label
             self.results_list = None
             self.animes = []
             self.urls = []
-            yield Label("Entrée: valider, q ou Échap: retour menu", id="search-help")
+            yield Label("[bold]Entree[/] valider   [bold]q[/] retour", id="search-help")
         def on_mount(self):
             self.set_focus(self.input)
             if self.search_term:
@@ -1330,7 +1341,7 @@ if TEXTUAL_AVAILABLE:
                 self.animes = []
                 self.urls = []
                 return
-            self.result_label.update(f"Recherche de : {query} ...")
+            self.result_label.update(f"[bold]Recherche de \"{query}\"...[/]")
             animes, urls = AnimeDownloader().get_catalogue(query)
             if self.results_list:
                 self.results_list.remove()
@@ -1338,13 +1349,13 @@ if TEXTUAL_AVAILABLE:
             self.animes = animes
             self.urls = urls
             if not animes:
-                self.result_label.update("Aucun anime trouvé.")
+                self.result_label.update("[red]Aucun anime trouve.[/]")
                 return
-            items = [ListItem(Label(anime)) for anime in animes]
+            items = [ListItem(Label(f"  {anime}")) for anime in animes]
             self.results_list = ListView(*items, id="search-results-list")
             self.mount(self.results_list)
             self.set_focus(self.results_list)
-            self.result_label.update(f"{len(animes)} résultat(s) trouvé(s) :")
+            self.result_label.update(f"[green]{len(animes)} resultat(s) trouve(s)[/]")
 
         def on_list_view_selected(self, event):
             if self.results_list and event.control is self.results_list:
@@ -1360,12 +1371,11 @@ if TEXTUAL_AVAILABLE:
             self.key_q()
 
     class AnimeSamaTUI(App):
-        CSS_PATH = None
+        CSS_PATH = "anime-sama.tcss"
+        TITLE = "Anime-sama"
+        SUB_TITLE = "Terminal anime viewer"
         BINDINGS = [
             ("q", "quit", "Quitter"),
-            ("up", "up", "Monter"),
-            ("down", "down", "Descendre"),
-            ("enter", "enter", "Valider")
         ]
 
         def __init__(self, start_screen=None, search_term=None, pre_screen=None):
@@ -1375,12 +1385,23 @@ if TEXTUAL_AVAILABLE:
             self.pre_screen = pre_screen
 
         def compose(self) -> ComposeResult:
-            yield Header()
-            self.menu = MainMenu()
-            yield Container(self.menu, id="main-container")
+            yield Header(show_clock=True)
+            self.menu_label = Label("", id="title")
+            yield self.menu_label
+            yield Container(
+                MainMenu(),
+                id="main-container"
+            )
             yield Footer()
 
+        def on_mount_screen(self, event=None):
+            if hasattr(self, "menu_label"):
+                dot_color = "green" if IS_DOMAIN_AVAILABLE else "red"
+                status_text = "dispo" if IS_DOMAIN_AVAILABLE else "indisponible"
+                self.menu_label.update(f"[{dot_color}]● {DOMAIN} ({status_text})[/]")
+
         async def on_mount(self):
+            self.on_mount_screen()
             if self.pre_screen:
                 await self.push_screen(self.pre_screen)
             elif self.search_term:
@@ -1390,7 +1411,7 @@ if TEXTUAL_AVAILABLE:
             elif self.start_screen == "history":
                 await self.push_screen(HistoryScreen())
             else:
-                self.set_focus(self.menu.list_view)
+                self.set_focus(self.query_one("#menu-list"))
 
         async def handle_menu_select(self, event: MenuSelect):
             action = MENU_ITEMS[event.index][1]
