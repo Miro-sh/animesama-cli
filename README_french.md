@@ -1,98 +1,102 @@
-<p align=center>
-<br>
-<a href="#Linux"><img src="https://img.shields.io/badge/os-linux-90ee90">
-<a href="#Windows"><img src="https://img.shields.io/badge/os-windows-90ee90">
-<br>
-<h1 align="center">
-<a href="https://discord.gg/MwHAXPpJ8C"><img src="https://invidget.switchblade.xyz/MwHAXPpJ8C?language=en"></a>
-<br>
-<a href="https://github.com/DictateurMiro"><img src="https://img.shields.io/badge/owner-DictateurMiro-ff6344"></a>
+<p align="center">
+  <br>
+  <a href="#-linux"><img src="https://img.shields.io/badge/os-linux-90ee90" alt="Linux"></a>
+  <a href="#-windows"><img src="https://img.shields.io/badge/os-windows-90ee90" alt="Windows"></a>
+  <br><br>
+  <a href="https://discord.gg/MwHAXPpJ8C"><img src="https://invidget.switchblade.xyz/MwHAXPpJ8C?language=en" alt="Discord"></a>
+  <br>
+  <a href="https://github.com/Miro-sh"><img src="https://img.shields.io/badge/owner-Miro--sh-ff6344" alt="Owner"></a>
 </p>
 
 <p align="center">
-Ce dépôt est également disponible en <a href="README.md"><img src="https://img.shields.io/badge/🇺🇸-Anglais-blue" alt="English"></a>
+  <sub>Ce README est aussi dispo en &#127482;&#127480; <a href="README.md">Anglais</a></sub>
 </p>
 
-<h3 align="center">
-Un outil en ligne de commande pour parcourir et regarder des animes depuis <a href="https://anime-sama.fr">anime-sama.fr</a> (en version française et avec sous-titres).
-</h3>
+<p align="center">
+  <img src="https://repology.org/badge/vertical-allrepos/animesama-cli.svg?minversion=1.0.5" alt="Statut des paquets">
+</p>
 
-<h1 align="center">
-	Démonstration
-</h1>
+---
 
-[showcase.webm](https://user-images.githubusercontent.com/44473782/224679247-0856e652-f187-4865-bbcf-5a8e5cf830da.webm)
+## &#127916; C'est quoi ?
 
-## Sommaire
+Un outil en terminal pour parcourir et regarder des animes depuis [anime-sama.fr](https://anime-sama.fr). Il scrape le catalogue, permet de chercher, garde un historique, et affiche le planning des sorties.
 
-- [Installation](#installation)
-  - [Linux](#première-installation)
-  - [Windows](#seconde-installation)
-- [Désinstallation](#désinstallation)
-- [Dépendances](#dépendances)
-- [FAQ](#faq)
-  - [Autres Langues](#autres-langues)
-- [Guide de Contribution](./contribution.md)
-- [Avertissement](./disclaimer.md)
+La lecture passe par `mpv`. Pas de navigateur, pas de pubs, pas de bloat.
 
-## Installation
+## &#127775; Fonctionnalités
 
-[![État des paquets](https://repology.org/badge/vertical-allrepos/animesama-cli.svg?minversion=1.0.5)](https://repology.org/project/animesama-cli/versions)
+- Recherche sur tout le catalogue [anime-sama.fr](https://anime-sama.fr) direct depuis le terminal
+- Deux interfaces : un TUI propre avec [Textual](https://textual.textualize.io/) et un fallback CLI classique
+- Historique de visionnage en SQLite (reprends où tu t'es arrêté, vois quels animes sont finis)
+- Planning hebdomadaire des sorties récupéré du site
+- Liste des prochains épisodes via animecountdown.com
+- Version française (VF) et version originale sous-titrée (VOSTFR)
+- Tourne sur Linux et Windows
+- Paquet AUR pour Arch Linux (`animesama-cli`)
 
-### Première Installation
+## &#9992;&#65039; Démarrage rapide
 
-*Ces plateformes sont parfaitement prises en charge et sont utilisées par les mainteneurs et une grande partie des utilisateurs.*
+### &#128187; Linux
 
-<details><summary><b>Linux</b></summary>
-
-
-
-*Assurez-vous d'avoir installé toutes les dépendances nécessaires. Pour les distributions basées sur Debian, vous aurez besoin de curl, python3 et mpv. Le script d'installation s'occupera du reste du processus de configuration.*
-
-<details><summary>Debian</summary>
+#### Debian / Ubuntu
+Assure-toi d'avoir `curl`, `python3` et `mpv`. Le script gère le reste.
 
 ```sh
 sudo apt-get install curl -y
 curl -fsSL https://raw.githubusercontent.com/DictateurMiro/animesama-cli/master/install.sh -o /tmp/animesama-install.sh && chmod +x /tmp/animesama-install.sh && sh /tmp/animesama-install.sh
 ```
-</details>
 
-<details><summary>Arch</summary>
-
+#### Arch Linux
 ```sh
 yay -S animesama-cli
 ```
-</details></details>
 
-### Seconde Installation
+### &#128187; Windows
 
-<details><summary><b>Windows</b></summary>
+Ouvre PowerShell (pas besoin d'admin) et colle ceci :
 
-Ouvrez PowerShell (pas besoin de permissions administrateur) et collez la commande ci-dessous
 ```powershell
 irm "https://raw.githubusercontent.com/DictateurMiro/animesama-cli/refs/heads/master/setup_animesama_cli.bat" -OutFile install.bat; .\install.bat
 ```
 
-</details>
+Ça installe les dépendances Python, récupère mpv, et crée les scripts de lancement. Une fois fini, ferme et rouvre ton terminal, puis tape `animesama-cli`.
 
-## Désinstallation
+## &#128161; Utilisation
+
+```sh
+animesama-cli                  # Lance le TUI (ou CLI si Textual n'est pas installé)
+animesama-cli --cli            # Force le mode CLI
+animesama-cli naruto           # Recherche directe
+animesama-cli --vf naruto      # Recherche en VF uniquement
+animesama-cli -c               # Affiche l'historique
+animesama-cli -cf              # Historique avec vérification du dernier épisode
+animesama-cli -p               # Planning hebdomadaire
+animesama-cli -up              # Prochains épisodes à sortir
+animesama-cli --debug naruto   # Recherche avec logs de debug
+animesama-cli -h               # Toutes les options
+```
+
+L'historique est stocké dans `~/.local/share/animesama-cli/history.db`. Tu peux l'ouvrir avec n'importe quel navigateur SQLite.
+
+## &#128295; Désinstallation
 
 <details>
 
-* AUR:
+**AUR :**
 ```sh
 yay -R animesama-cli
 ```
 
-* Linux:
+**Linux (install manuelle) :**
 ```sh
 sudo rm /usr/local/bin/animesama-cli
 rm -rf ~/animesama-cli
 rm -rf ~/.local/share/animesama-venv
 ```
 
-* Windows:
-```sh
+**Windows :**
+```batch
 @echo off
 set "INSTALL_DIR=%USERPROFILE%\AnimeSamaCLI"
 
@@ -118,46 +122,49 @@ endlocal
 
 </details>
 
-## Dépendances
+## &#128218; Dépendances
 
-### Dépendances Python
-- requests: Bibliothèque HTTP pour effectuer des requêtes web
-- beautifulsoup4 (bs4): Parseur HTML/XML pour le web scraping
-- sqlite3: Module intégré pour les opérations de base de données SQLite
-- curses: Bibliothèque d'interface utilisateur en mode terminal
-- windows-curses: Version Windows de curses
-- re: Module intégré pour les opérations avec les expressions régulières
-- json: Module intégré pour l'analyse/génération JSON
-- sys: Module intégré pour l'interaction avec l'interpréteur
-- os: Module intégré pour les fonctionnalités liées au système d'exploitation
-- time: Module intégré pour les fonctions temporelles
-- datetime: Module intégré pour la manipulation des dates/heures
-- locale: Module intégré pour la prise en charge de la localisation
-- pathlib: Module intégré pour les opérations sur les chemins du système de fichiers
+| Catégorie | Paquets |
+|-----------|---------|
+| Python    | `requests`, `beautifulsoup4`, `textual` (optionnel pour le TUI), `windows-curses` (Windows seulement) |
+| Système   | `mpv`, `git`, `python3` |
 
-### Dépendances Système
-- mpv: Lecteur multimédia pour le contenu vidéo
-- git: Système de contrôle de version pour la gestion des dépôts
-- python: Environnement d'exécution principal pour le code Python
+Modules Python intégrés utilisés : `sqlite3`, `re`, `json`, `sys`, `os`, `time`, `datetime`, `locale`, `pathlib`, `subprocess`, `asyncio`.
 
-## FAQ
+## &#10067; FAQ
+
 <details>
-	
-* Puis-je changer la langue des sous-titres ou les désactiver ? - Non, les sous-titres sont intégrés dans la vidéo.
-* Puis-je regarder en voix française ? - Oui, utilisez `--vf`.
-* Puis-je changer la langue du doublage ? - Non.
-* Puis-je changer la source des médias ? - Non (sauf si vous pouvez extraire cette source vous-même).
-* Puis-je utiliser VLC ? - Non, uniquement mpv.
+  <summary>Clique pour déplier</summary>
+  <br>
 
-**Note :** Toutes les fonctionnalités sont documentées dans `animesama-cli --help`.
+**Je peux changer ou désactiver les sous-titres ?** Non. Les sous-titres sont incrustés dans la vidéo.
+
+**Je peux regarder en VF ?** Oui. Utilise `--vf` dans la recherche.
+
+**Je peux changer la langue audio ?** Non. Le site propose uniquement la VF et la VO avec sous-titres français.
+
+**Je peux utiliser une autre source ?** Non, sauf si tu codes ton propre scraper.
+
+**Je peux utiliser VLC ?** Non. Seul `mpv` est supporté.
+
+**Où trouver toutes les options ?** `animesama-cli --help`
 
 </details>
 
-## Autres Langues
+## &#127757; Outils similaires dans d'autres langues
 
-* [ani-cli](https://github.com/pystardust/ani-cli) : Voix japonaise avec sous-titres anglais et voix anglaise (allmanga)
-* [GoAnime](https://github.com/alvarorichard/GoAnime) : Voix japonaise avec sous-titres portugais et voix portugaise
-* [doccli](https://github.com/TowarzyszFatCat/doccli) : Voix japonaise avec sous-titres polonais et voix polonaise (docchi.pl)
+- [ani-cli](https://github.com/pystardust/ani-cli) — VO japonaise, sous-titres anglais (4anime, gogoanime, allmanga)
+- [GoAnime](https://github.com/alvarorichard/GoAnime) — VO japonaise, sous-titres portugais
+- [doccli](https://github.com/TowarzyszFatCat/doccli) — VO japonaise, sous-titres polonais (docchi.pl)
 
+Ce projet est inspiré de [ani-cli](https://github.com/pystardust/ani-cli).
 
-### Idée originale [ani-cli](https://github.com/pystardust/ani-cli)
+## &#129309; Contribuer
+
+Voir [CONTRIBUTING.md](./contribution.md) pour les règles sur les PRs et les issues. Si tu veux aider sans coder, rejoins le [Discord](https://discord.gg/MwHAXPpJ8C), mets une étoile au repo, ou parle-en autour de toi.
+
+## &#9888;&#65039; Avertissement
+
+Voir [DISCLAIMER.md](./disclaimer.md).
+
+En résumé : ceci est un navigateur pour ton terminal. Il récupère du contenu disponible publiquement. Ce que tu en fais te regarde. Aucun contenu n'est hébergé sur ce repo.
