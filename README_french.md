@@ -152,9 +152,9 @@ Modules Python intégrés utilisés : `sqlite3`, `re`, `json`, `sys`, `os`, `tim
 
 ## &#127757; Outils similaires dans d'autres langues
 
-- [ani-cli](https://github.com/pystardust/ani-cli) — VO japonaise, sous-titres anglais (4anime, gogoanime, allmanga)
-- [GoAnime](https://github.com/alvarorichard/GoAnime) — VO japonaise, sous-titres portugais
-- [doccli](https://github.com/TowarzyszFatCat/doccli) — VO japonaise, sous-titres polonais (docchi.pl)
+- [ani-cli](https://github.com/pystardust/ani-cli) : VO japonaise, sous-titres anglais (4anime, gogoanime, allmanga)
+- [GoAnime](https://github.com/alvarorichard/GoAnime) : VO japonaise, sous-titres portugais
+- [doccli](https://github.com/TowarzyszFatCat/doccli) : VO japonaise, sous-titres polonais (docchi.pl)
 
 Ce projet est inspiré de [ani-cli](https://github.com/pystardust/ani-cli).
 

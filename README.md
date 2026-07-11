@@ -152,9 +152,9 @@ Built-in Python modules used: `sqlite3`, `re`, `json`, `sys`, `os`, `time`, `dat
 
 ## &#127757; Tools in other languages
 
-- [ani-cli](https://github.com/pystardust/ani-cli) — Japanese audio, English subs (4anime, gogoanime, allmanga)
-- [GoAnime](https://github.com/alvarorichard/GoAnime) — Japanese audio, Portuguese subs
-- [doccli](https://github.com/TowarzyszFatCat/doccli) — Japanese audio, Polish subs (docchi.pl)
+- [ani-cli](https://github.com/pystardust/ani-cli) : Japanese audio, English subs (4anime, gogoanime, allmanga)
+- [GoAnime](https://github.com/alvarorichard/GoAnime) : Japanese audio, Portuguese subs
+- [doccli](https://github.com/TowarzyszFatCat/doccli) : Japanese audio, Polish subs (docchi.pl)
 
 This project was inspired by [ani-cli](https://github.com/pystardust/ani-cli).
 
