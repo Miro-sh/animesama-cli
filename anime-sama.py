@@ -815,7 +815,18 @@ if TEXTUAL_AVAILABLE:
 
     class MainMenu(Static):
         def compose(self) -> ComposeResult:
-            items = [ListItem(Label(f"  {text}")) for text, _ in MENU_ITEMS]
+            ascii_art = """
+      ╔════════════════════════════════╗
+      ║     ╺┳╸   ╻ ╻   ╻          ║
+      ║      ┃    ┃ ┃   ┃          ║
+      ║      ┃    ┗━┫   ┃          ║
+      ║      ┃    ┃ ┃   ┃          ║
+      ║      ╹    ╹ ╹   ╹          ║
+      ╚════════════════════════════════╝
+"""
+            yield Label(ascii_art, id="logo")
+
+            items = [ListItem(Label(f"    {text}")) for text, _ in MENU_ITEMS]
             self.list_view = ListView(*items, id="menu-list")
             yield self.list_view
 
@@ -1372,7 +1383,7 @@ if TEXTUAL_AVAILABLE:
         TITLE = "Anime-sama"
         SUB_TITLE = f"Terminal anime viewer — {DOMAIN}"
         BINDINGS = [
-            ("q", "quit", "Quitter"),
+            ("ctrl+q", "quit", "Quitter"),
         ]
 
         def __init__(self, start_screen=None, search_term=None, pre_screen=None):
@@ -1428,6 +1439,9 @@ if TEXTUAL_AVAILABLE:
 
         def on_menu_select(self, event: MenuSelect):
             asyncio.create_task(self.handle_menu_select(event))
+
+        def key_q(self):
+            self.exit()
 
     def tui_main(args):
         start_screen = None
