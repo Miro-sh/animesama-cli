@@ -1,62 +1,37 @@
 /* ── Anime-sama TUI Theme ────────────────────────────────────
- * Dark anime aesthetic using Textual built-in color system
- * Accent: cyan/teal primary, purple secondary
+ * Dark anime aesthetic. Cyan/green accents on dark bg.
+ * Uses Textual built-in dark theme as base, overrides styling.
  * ──────────────────────────────────────────────────────────── */
 
-/* ═══════════ Override default theme colors ═══════════ */
-* {
-    $primary: #00bcd4;
-    $secondary: #7c4dff;
-    $accent: #e040fb;
-    $error: #e53935;
-    $success: #4caf50;
-    $warning: #ff9800;
-    $surface: #0a0e17;
-    $panel: #0d1117;
-    $boost: #1a2035;
-    $text: #e1e4e8;
-    $text-muted: #6e7681;
-    scrollbar-size: 1 1;
-}
-
-/* ═══════════ Header ═══════════ */
 Header {
     background: $panel;
-    border-bottom: solid $primary-darken-3;
+    border-bottom: solid $primary 30%;
 }
 
-/* ═══════════ Footer ═══════════ */
 Footer {
     background: $panel;
-    border-top: solid $primary-darken-3;
+    border-top: solid $primary 30%;
 }
 
-/* ═══════════ Screen ═══════════ */
-Screen {
-    background: $surface;
-}
-
-/* ═══════════ Main Container ═══════════ */
 #main-container {
     align: center middle;
     width: 100%;
     height: 100%;
 }
 
-/* ═══════════ Domain Status Bar ═══════════ */
 #title {
     width: 100%;
     content-align: center middle;
     padding: 1 0;
     text-style: bold;
     background: $panel;
+    border-bottom: dashed $primary 20%;
 }
 
-/* ═══════════ Main Menu List ═══════════ */
 #menu-list {
-    width: 36;
+    width: 38;
     height: auto;
-    border: thick $primary-darken-3;
+    border: thick $primary 20%;
     background: $panel;
     margin: 2 0;
 }
@@ -66,12 +41,11 @@ Screen {
 }
 
 #menu-list > ListItem.--highlight {
-    background: $primary-darken-1 40%;
-    color: $primary-lighten-2;
+    background: $primary 25%;
+    color: $text;
     text-style: bold;
 }
 
-/* ═══════════ Screen Titles ═══════════ */
 #history-title,
 #planning-title,
 #upcoming-title,
@@ -81,12 +55,10 @@ Screen {
     width: 100%;
     padding: 1 2;
     text-style: bold;
-    color: $primary-lighten-2;
     background: $panel;
-    border-bottom: solid $primary-darken-3;
+    border-bottom: solid $primary 30%;
 }
 
-/* ═══════════ Subtitles ═══════════ */
 #version-title {
     padding: 0 2;
     color: $text-muted;
@@ -100,10 +72,9 @@ Screen {
     text-style: italic;
 }
 
-/* ═══════════ Search Input ═══════════ */
 #search-input {
     margin: 1 2;
-    border: solid $primary-darken-2;
+    border: solid $primary 30%;
     background: $panel;
     padding: 0 1;
 }
@@ -117,10 +88,9 @@ Screen {
     color: $text-muted;
 }
 
-/* ═══════════ List Views (general) ═══════════ */
 ListView {
     margin: 1 2;
-    border: solid $primary-darken-3;
+    border: solid $primary 20%;
     background: $surface;
     height: auto;
     max-height: 100%;
@@ -131,12 +101,11 @@ ListView > ListItem {
 }
 
 ListView > ListItem.--highlight {
-    background: $primary-darken-1 30%;
-    color: $primary-lighten-2;
+    background: $primary 20%;
+    color: $text;
     text-style: bold;
 }
 
-/* ═══════════ Help / Status Bar ═══════════ */
 #history-help,
 #planning-help,
 #upcoming-help,
@@ -148,11 +117,10 @@ ListView > ListItem.--highlight {
     padding: 0 2;
     color: $text-muted;
     background: $panel;
-    border-top: solid $primary-darken-3;
+    border-top: solid $primary 20%;
     dock: bottom;
 }
 
-/* ═══════════ Empty States ═══════════ */
 #history-empty,
 #planning-empty,
 #upcoming-empty,
@@ -163,20 +131,4 @@ ListView > ListItem.--highlight {
     content-align: center middle;
     color: $text-muted;
     text-style: italic;
-}
-
-/* ═══════════ Scrollbars ═══════════ */
-Scrollbar {
-    scrollbar-color: $primary-darken-3;
-    scrollbar-color-hover: $primary-darken-2;
-    scrollbar-color-active: $primary;
-}
-
-/* ═══════════ Planning double-list ═══════════ */
-#planning-day-list {
-    margin: 1 2;
-}
-
-#anime-list {
-    border-color: $secondary-darken-2;
 }
