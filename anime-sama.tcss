@@ -1,16 +1,25 @@
-/* ── Anime-sama TUI Theme ────────────────────────────────────
- * Dark anime aesthetic. Cyan/green accents on dark bg.
- * Uses Textual built-in dark theme as base, overrides styling.
- * ──────────────────────────────────────────────────────────── */
+/* ── Anime-sama ──────────────────────────────────────────── */
 
 Header {
-    background: $panel;
-    border-bottom: solid $primary 30%;
+    background: transparent;
+    color: $text-muted;
+    text-style: none;
+    border: none;
 }
 
 Footer {
-    background: $panel;
-    border-top: solid $primary 30%;
+    background: transparent;
+    color: $text-muted;
+    border: none;
+}
+
+#title {
+    width: 100%;
+    content-align: center middle;
+    padding: 3 0 1 0;
+    text-style: bold;
+    background: transparent;
+    color: $text;
 }
 
 #main-container {
@@ -19,31 +28,29 @@ Footer {
     height: 100%;
 }
 
-#title {
-    width: 100%;
-    content-align: center middle;
-    padding: 1 0;
-    text-style: bold;
-    background: $panel;
-    border-bottom: dashed $primary 20%;
-}
-
 #menu-list {
-    width: 38;
+    width: 32;
     height: auto;
-    border: thick $primary 20%;
-    background: $panel;
-    margin: 2 0;
+    border: none;
+    background: transparent;
+    margin: 1 0;
+    padding: 0 2;
 }
 
 #menu-list > ListItem {
-    padding: 1 2;
+    padding: 0 2;
+    background: transparent;
 }
 
 #menu-list > ListItem.--highlight {
-    background: $primary 25%;
+    background: $primary 20%;
     color: $text;
-    text-style: bold;
+    text-style: none;
+}
+
+Screen {
+    background: $surface;
+    border: none;
 }
 
 #history-title,
@@ -53,57 +60,57 @@ Footer {
 #anime-info-title,
 #search-title {
     width: 100%;
-    padding: 1 2;
-    text-style: bold;
-    background: $panel;
-    border-bottom: solid $primary 30%;
+    padding: 1 3;
+    text-style: none;
+    background: transparent;
+    border: none;
+    color: $text;
 }
 
 #version-title {
-    padding: 0 2;
+    padding: 0 3;
     color: $text-muted;
-    text-style: italic;
 }
 
 #anime-version,
 #anime-info-url {
-    padding: 0 2;
+    padding: 0 3;
     color: $text-muted;
-    text-style: italic;
 }
 
 #search-input {
-    margin: 1 2;
-    border: solid $primary 30%;
+    margin: 1 3;
+    border: none;
     background: $panel;
     padding: 0 1;
 }
 
 #search-input:focus {
-    border: solid $primary;
+    border: none;
 }
 
 #search-result {
-    padding: 0 2;
+    padding: 0 3;
     color: $text-muted;
 }
 
 ListView {
-    margin: 1 2;
-    border: solid $primary 20%;
-    background: $surface;
+    margin: 0 3 1 3;
+    border: none;
+    background: transparent;
     height: auto;
     max-height: 100%;
 }
 
 ListView > ListItem {
-    padding: 0 1;
+    padding: 0 2;
+    background: transparent;
 }
 
 ListView > ListItem.--highlight {
     background: $primary 20%;
     color: $text;
-    text-style: bold;
+    text-style: none;
 }
 
 #history-help,
@@ -114,10 +121,10 @@ ListView > ListItem.--highlight {
 #anime-info-help,
 #search-help {
     width: 100%;
-    padding: 0 2;
+    padding: 0 3;
     color: $text-muted;
-    background: $panel;
-    border-top: solid $primary 20%;
+    background: transparent;
+    border: none;
     dock: bottom;
 }
 
@@ -127,8 +134,7 @@ ListView > ListItem.--highlight {
 #episodes-empty,
 #anime-info-noseason {
     width: 100%;
-    padding: 3 2;
+    padding: 3 3;
     content-align: center middle;
     color: $text-muted;
-    text-style: italic;
 }

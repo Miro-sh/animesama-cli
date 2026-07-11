@@ -697,7 +697,7 @@ def cli_main(args):
             return
     
     query = " ".join(args.query)
-    print(f"🔍 Recherche de : {query}")
+    print(f"Recherche de : {query}")
     downloader = AnimeDownloader(debug=args.debug)
     animes, urls = downloader.get_catalogue(query, vf=args.vf)
 
@@ -815,10 +815,7 @@ if TEXTUAL_AVAILABLE:
 
     class MainMenu(Static):
         def compose(self) -> ComposeResult:
-            items = [
-                ListItem(Label(f"  {emoji}  {text}"))
-                for (text, _), emoji in zip(MENU_ITEMS, ["🔍", "⏱ ", "📅", "🆕"])
-            ]
+            items = [ListItem(Label(f"  {text}")) for text, _ in MENU_ITEMS]
             self.list_view = ListView(*items, id="menu-list")
             yield self.list_view
 
@@ -830,7 +827,7 @@ if TEXTUAL_AVAILABLE:
 
     class HistoryScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("📺  Historique", id="history-title")
+            yield Label("Historique", id="history-title")
             self.entries = get_history_entries()
             if not self.entries:
                 yield Label("Aucun anime dans l'historique.\nLance un episode pour commencer.", id="history-empty")
@@ -1003,7 +1000,7 @@ if TEXTUAL_AVAILABLE:
             
     class PlanningScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("📅  Planning", id="planning-title")
+            yield Label("Planning", id="planning-title")
             self.days, self.planning = self.get_planning()
             if not self.days:
                 yield Label("Aucun planning trouve.", id="planning-empty")
@@ -1097,7 +1094,7 @@ if TEXTUAL_AVAILABLE:
 
     class UpcomingScreen(Screen):
         def compose(self) -> ComposeResult:
-            yield Label("🆕  Prochains episodes", id="upcoming-title")
+            yield Label("Prochains episodes", id="upcoming-title")
             items = self.get_upcoming()
             if not items:
                 yield Label("Aucun resultat trouve.", id="upcoming-empty")
@@ -1142,7 +1139,7 @@ if TEXTUAL_AVAILABLE:
             self.episodes_dict = {}
             self.status_label = None
         def compose(self) -> ComposeResult:
-            yield Label(f"🎬  {self.anime_name}", id="episodes-title")
+            yield Label(f"  {self.anime_name}", id="episodes-title")
             yield Label(f"  {self.season_name}", id="anime-version")
             self.episodes_dict = self.get_episodes()
             if not self.episodes_dict:
@@ -1214,7 +1211,7 @@ if TEXTUAL_AVAILABLE:
             self.versions = versions
 
         def compose(self) -> ComposeResult:
-            yield Label(f"🎬  {self.anime_name}", id="episodes-title")
+            yield Label(f"  {self.anime_name}", id="episodes-title")
             yield Label("Choisis la version", id="version-title")
             items = [ListItem(Label(f"  {label}")) for label, url in self.versions]
             self.version_list = ListView(*items, id="version-list")
@@ -1275,7 +1272,7 @@ if TEXTUAL_AVAILABLE:
                 label = list(versions.keys())[0]
                 yield Label(f"  Version : {label}", id="anime-version")
 
-            yield Label(f"🎬  {self.anime_name}", id="anime-info-title")
+            yield Label(f"  {self.anime_name}", id="anime-info-title")
             yield Label(f"  {self.anime_url}", id="anime-info-url")
             self.seasons = seasons
             if not self.seasons:
@@ -1316,7 +1313,7 @@ if TEXTUAL_AVAILABLE:
             super().__init__()
             self.search_term = search_term
         def compose(self) -> ComposeResult:
-            yield Label("🔍  Recherche", id="search-title")
+            yield Label("Recherche", id="search-title")
             self.input = Input(placeholder="Tape le nom de l'anime...", id="search-input")
             yield self.input
             self.result_label = Label("", id="search-result")
@@ -1373,7 +1370,7 @@ if TEXTUAL_AVAILABLE:
     class AnimeSamaTUI(App):
         CSS_PATH = "anime-sama.tcss"
         TITLE = "Anime-sama"
-        SUB_TITLE = "Terminal anime viewer"
+        SUB_TITLE = f"Terminal anime viewer — {DOMAIN}"
         BINDINGS = [
             ("q", "quit", "Quitter"),
         ]
@@ -1394,14 +1391,10 @@ if TEXTUAL_AVAILABLE:
             )
             yield Footer()
 
-        def on_mount_screen(self, event=None):
-            if hasattr(self, "menu_label"):
-                dot_color = "green" if IS_DOMAIN_AVAILABLE else "red"
-                status_text = "dispo" if IS_DOMAIN_AVAILABLE else "indisponible"
-                self.menu_label.update(f"[{dot_color}]● {DOMAIN} ({status_text})[/]")
-
         async def on_mount(self):
-            self.on_mount_screen()
+            dot_color = "green" if IS_DOMAIN_AVAILABLE else "red"
+            status = "dispo" if IS_DOMAIN_AVAILABLE else "indisponible"
+            self.menu_label.update(f"[{dot_color}]● {DOMAIN} ({status})[/]")
             if self.pre_screen:
                 await self.push_screen(self.pre_screen)
             elif self.search_term:
