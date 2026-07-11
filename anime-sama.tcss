@@ -3,7 +3,6 @@
 Header {
     background: transparent;
     color: $text-muted;
-    text-style: none;
     border: none;
 }
 
@@ -16,7 +15,7 @@ Footer {
 #title {
     width: 100%;
     content-align: center middle;
-    padding: 3 0 1 0;
+    padding: 1 0;
     text-style: bold;
     background: transparent;
     color: $text;
@@ -28,24 +27,37 @@ Footer {
     height: 100%;
 }
 
+#logo {
+    width: 100%;
+    content-align: center middle;
+    padding: 0 0 2 0;
+    color: $primary;
+    text-style: bold;
+}
+
 #menu-list {
-    width: 32;
+    width: 34;
     height: auto;
     border: none;
     background: transparent;
-    margin: 1 0;
+    margin: 0;
     padding: 0 2;
 }
 
 #menu-list > ListItem {
-    padding: 0 2;
+    padding: 1 3;
     background: transparent;
 }
 
+#menu-list > ListItem > Label {
+    text-style: bold;
+    padding: 0;
+}
+
 #menu-list > ListItem.--highlight {
-    background: $primary 20%;
+    background: $primary 25%;
     color: $text;
-    text-style: none;
+    text-style: bold;
 }
 
 Screen {
@@ -85,10 +97,6 @@ Screen {
     padding: 0 1;
 }
 
-#search-input:focus {
-    border: none;
-}
-
 #search-result {
     padding: 0 3;
     color: $text-muted;
@@ -108,9 +116,9 @@ ListView > ListItem {
 }
 
 ListView > ListItem.--highlight {
-    background: $primary 20%;
+    background: $primary 25%;
     color: $text;
-    text-style: none;
+    text-style: bold;
 }
 
 #history-help,
