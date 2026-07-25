@@ -10,6 +10,16 @@ Browse and watch anime from [anime-sama.fr](https://anime-sama.fr) directly in y
 
 </div>
 
+## Demo
+
+<div align="center">
+
+<video src="https://github.com/Miro-sh/animesama-cli/raw/master/assets/demo.mp4" controls width="720"></video>
+
+*[Watch the demo video](./assets/demo.mp4) if it does not play inline.*
+
+</div>
+
 ## Overview
 
 animesama-cli is a terminal application for browsing and watching anime from [anime-sama.fr](https://anime-sama.fr). It provides catalog search, persistent watch history, and the weekly release schedule. Video playback is handled by [mpv](https://mpv.io).
