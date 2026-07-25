@@ -5,6 +5,7 @@
 Browse and watch anime from [anime-sama.fr](https://anime-sama.fr) directly in your terminal.
 
 <a href="https://aur.archlinux.org/packages/animesama-cli"><img src="https://img.shields.io/aur/version/animesama-cli" alt="AUR version"></a>
+<a href="https://pypi.org/project/animesama-cli"><img src="https://img.shields.io/pypi/v/animesama-cli" alt="PyPI version"></a>
 <img src="https://img.shields.io/badge/platform-linux-90ee90" alt="Linux">
 <img src="https://img.shields.io/badge/platform-windows-90ee90" alt="Windows">
 
@@ -36,17 +37,23 @@ animesama-cli is a terminal application for browsing and watching anime from [an
 
 ### Linux
 
-Debian / Ubuntu: requires `curl`, `python3` and `mpv`. The script installs everything else.
+Debian / Ubuntu: the script installs `mpv`, `pipx` and the application.
 
 ```sh
 sudo apt-get install curl -y
 curl -fsSL https://raw.githubusercontent.com/Miro-sh/animesama-cli/master/install_unix.sh -o /tmp/animesama-install.sh && chmod +x /tmp/animesama-install.sh && sh /tmp/animesama-install.sh
 ```
 
-Arch Linux:
+Arch Linux (AUR):
 
 ```sh
 yay -S animesama-cli
+```
+
+Any distribution with [pipx](https://pipx.pypa.io) (requires `mpv`):
+
+```sh
+pipx install animesama-cli
 ```
 
 ### Windows
@@ -57,7 +64,7 @@ Run the following command in PowerShell (no administrator rights required):
 irm "https://raw.githubusercontent.com/Miro-sh/animesama-cli/refs/heads/master/install_windows.bat" -OutFile install.bat; .\install.bat
 ```
 
-The script installs the Python dependencies, downloads mpv, and creates the launcher scripts. Restart your terminal after installation, then run `animesama-cli`.
+The script installs the application via [pipx](https://pipx.pypa.io) and downloads mpv. Restart your terminal after installation, then run `animesama-cli`.
 
 ## Usage
 
@@ -86,38 +93,24 @@ The watch history is stored at `~/.local/share/animesama-cli/history.db` and can
 yay -R animesama-cli
 ```
 
-**Linux (manual install):**
+**pipx (Linux and Windows):**
+
+```sh
+pipx uninstall animesama-cli
+```
+
+**Windows (mpv installed by the script):**
+
+```batch
+rd /s /q "%USERPROFILE%\AnimeSamaCLI"
+```
+
+**Old manual installs (before 1.0.7):**
 
 ```sh
 sudo rm /usr/local/bin/animesama-cli
 rm -rf ~/animesama-cli
 rm -rf ~/.local/share/animesama-venv
-```
-
-**Windows:**
-
-```batch
-@echo off
-set "INSTALL_DIR=%USERPROFILE%\AnimeSamaCLI"
-
-if exist "%USERPROFILE%\mpv.bat" del /q "%USERPROFILE%\mpv.bat"
-if exist "%USERPROFILE%\animesama-cli.bat" del /q "%USERPROFILE%\animesama-cli.bat"
-if exist "%WINDIR%\mpv.bat" del /q "%WINDIR%\mpv.bat" 2>nul
-if exist "%WINDIR%\animesama-cli.bat" del /q "%WINDIR%\animesama-cli.bat" 2>nul
-
-rd /s /q "%INSTALL_DIR%" 2>nul
-
-for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "OLD_PATH=%%B"
-setlocal enabledelayedexpansion
-set "NEW_PATH=!OLD_PATH!"
-set "NEW_PATH=!NEW_PATH:;%INSTALL_DIR%\mpv=!"
-set "NEW_PATH=!NEW_PATH:;%INSTALL_DIR%=!"
-set "NEW_PATH=!NEW_PATH:%INSTALL_DIR%\mpv;=!"
-set "NEW_PATH=!NEW_PATH:%INSTALL_DIR%;=!"
-set "NEW_PATH=!NEW_PATH:%INSTALL_DIR%\mpv=!"
-set "NEW_PATH=!NEW_PATH:%INSTALL_DIR%=!"
-setx PATH "!NEW_PATH!"
-endlocal
 ```
 
 </details>

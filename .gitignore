@@ -2,3 +2,6 @@ __pycache__/*
 .SRCINFO
 .idea
 PKGBUILD
+dist/
+build/
+*.egg-info
