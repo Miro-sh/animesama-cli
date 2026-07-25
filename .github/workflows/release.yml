@@ -106,7 +106,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add PKGBUILD .SRCINFO
           git commit -m "chore(aur): bump to ${GITHUB_REF_NAME#v}" || echo "No changes"
-          git push
+          git push origin HEAD:master
 
   homebrew:
     name: Update Homebrew formula
