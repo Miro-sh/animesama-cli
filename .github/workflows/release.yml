@@ -121,9 +121,14 @@ jobs:
 
       - name: Push to homebrew-tap
         env:
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_SSH_KEY: ${{ secrets.HOMEBREW_TAP_SSH_KEY }}
         run: |
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/Miro-sh/homebrew-tap.git" tap
+          mkdir -p ~/.ssh
+          echo "$HOMEBREW_TAP_SSH_KEY" > ~/.ssh/brew
+          chmod 600 ~/.ssh/brew
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/brew"
+          git clone git@github.com:Miro-sh/homebrew-tap.git tap
           mkdir -p tap/Formula
           cp Formula/animesama.rb tap/Formula/
           cd tap
