@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "animesama-cli"
+version = "1.0.7"
+description = "Browse and watch anime from anime-sama.fr directly in your terminal"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "GPL-3.0-only"}
+authors = [
+    {name = "Miro-sh", email = "65116975+Miro-sh@users.noreply.github.com"},
+]
+keywords = ["anime", "cli", "tui", "mpv", "terminal"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+dependencies = [
+    "requests",
+    "beautifulsoup4",
+    "textual>=0.44.0",
+    "windows-curses; sys_platform == 'win32'",
+]
+
+[project.urls]
+Homepage = "https://github.com/Miro-sh/animesama-cli"
+Repository = "https://github.com/Miro-sh/animesama-cli"
+Issues = "https://github.com/Miro-sh/animesama-cli/issues"
+
+[project.scripts]
+animesama-cli = "anime_sama:main"
+
+[tool.setuptools]
+py-modules = ["anime_sama"]

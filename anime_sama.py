@@ -866,6 +866,211 @@ def cli_main(args):
     except Exception as e:
         print(f"Erreur lors de la lecture : {e}")
 
+EMBEDDED_CSS = r"""
+$as-bg: #08080c;
+$as-panel: #0f1119;
+$as-border: #2a2d35;
+$as-text: #ddd8ea;
+$as-muted: #6b6577;
+$as-primary: #6ea8fe;
+$as-lavender: #8db8ff;
+$as-green: #86d6a2;
+$as-red: #e06c75;
+
+Screen {
+    background: $as-bg;
+    color: $as-text;
+}
+
+#app-grid {
+    layout: horizontal;
+    height: 1fr;
+}
+
+#sidebar {
+    width: 24;
+    height: 100%;
+    padding: 1 2 0 2;
+    background: $as-bg;
+}
+
+#logo {
+    color: $as-primary;
+    text-style: bold;
+    padding-bottom: 1;
+    width: 100%;
+}
+
+#domain-status {
+    color: $as-muted;
+    padding-bottom: 1;
+    width: 100%;
+}
+
+#nav {
+    background: transparent;
+    border: none;
+    height: auto;
+    margin: 0;
+    padding: 0;
+}
+
+#nav > ListItem {
+    padding: 0 1;
+    background: transparent;
+    color: $as-muted;
+    border-left: tall transparent;
+}
+
+#nav > ListItem.-highlight {
+    background: $as-panel;
+    color: $as-primary;
+    text-style: bold;
+    border-left: tall $as-primary;
+}
+
+#content {
+    width: 1fr;
+    height: 100%;
+    padding: 1 2 0 1;
+    background: $as-bg;
+}
+
+SearchPane, HistoryPane, PlanningPane, UpcomingPane {
+    border: round $as-border;
+    background: $as-panel;
+    padding: 0 1;
+    height: 100%;
+}
+
+SearchPane:focus-within, HistoryPane:focus-within, PlanningPane:focus-within, UpcomingPane:focus-within {
+    border: round $as-primary;
+}
+
+#search-input {
+    height: 3;
+    margin: 1 1 0 1;
+    padding: 0 2;
+    background: $as-bg;
+    color: $as-text;
+    border: round $as-border;
+}
+
+#search-input:focus {
+    border: round $as-primary;
+}
+
+#search-input > .input--placeholder {
+    color: $as-muted;
+}
+
+#search-result {
+    color: $as-muted;
+    padding: 1 2 0 2;
+    height: auto;
+}
+
+ListView {
+    background: transparent;
+    border: none;
+    margin: 0 1 1 1;
+    padding: 0;
+    height: 1fr;
+}
+
+#nav {
+    height: auto;
+    max-height: 100%;
+}
+
+#results-zone, #planning-zone {
+    height: 1fr;
+    margin-top: 1;
+}
+
+Column {
+    width: 1fr;
+    height: 100%;
+    border: round $as-border;
+    background: $as-bg;
+    margin-right: 1;
+}
+
+Column:focus-within {
+    border: round $as-primary;
+}
+
+Column ListView {
+    margin: 0;
+    height: 1fr;
+}
+
+* {
+    scrollbar-color: $as-primary 40%;
+    scrollbar-color-hover: $as-primary 60%;
+    scrollbar-color-active: $as-primary;
+    scrollbar-background: $as-bg;
+}
+
+ListView > ListItem {
+    padding: 0 1;
+    background: transparent;
+    color: $as-text;
+}
+
+ListView > ListItem.-highlight {
+    background: $as-primary 20%;
+    color: $as-text;
+    text-style: bold;
+}
+
+ListView:focus > ListItem.-highlight {
+    background: $as-primary 35%;
+    color: $as-text;
+    text-style: bold;
+}
+
+#status-bar {
+    dock: bottom;
+    height: 1;
+    padding: 0 2;
+    color: $as-muted;
+    background: $as-bg;
+}
+
+#screen-title {
+    width: 100%;
+    padding: 1 2 0 2;
+    text-style: bold;
+    color: $as-text;
+    background: transparent;
+}
+
+#screen-subtitle {
+    width: 100%;
+    padding: 0 2 1 2;
+    color: $as-muted;
+    background: transparent;
+}
+
+#screen-help {
+    dock: bottom;
+    width: 100%;
+    height: 1;
+    padding: 0 2;
+    color: $as-muted;
+    background: transparent;
+}
+
+#empty {
+    width: 100%;
+    padding: 2 3;
+    content-align: center middle;
+    color: $as-muted;
+}
+"""
+
+
 if TEXTUAL_AVAILABLE:
     NAV_ITEMS = [
         ("Recherche", "search"),
@@ -1380,7 +1585,7 @@ if TEXTUAL_AVAILABLE:
 
 
     class AnimeSamaTUI(App):
-        CSS_PATH = "anime-sama.tcss"
+        CSS = EMBEDDED_CSS
         BINDINGS = [
             ("ctrl+q", "quit", "Quitter"),
         ]

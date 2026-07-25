@@ -1,0 +1,134 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/animesama-cli
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync version with tag
+        run: sed -i "s/^version = .*/version = \"${GITHUB_REF_NAME#v}\"/" pyproject.toml
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build package
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  aur:
+    name: Update AUR package
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    needs: pypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare environment
+        run: |
+          pacman -Syu --noconfirm --needed git openssh curl sudo
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          cp PKGBUILD /home/builder/
+          chown -R builder:builder /home/builder
+
+      - name: Update PKGBUILD and regenerate .SRCINFO
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          TARBALL="https://github.com/Miro-sh/animesama-cli/archive/refs/tags/v${VERSION}.tar.gz"
+          SHA=$(curl -Lfs "$TARBALL" | sha256sum | cut -d' ' -f1)
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" /home/builder/PKGBUILD
+          sed -i "s/^sha256sums=.*/sha256sums=('${SHA}')/" /home/builder/PKGBUILD
+          cd /home/builder
+          su builder -c "makepkg --printsrcinfo" > .SRCINFO
+          cp PKGBUILD .SRCINFO "$GITHUB_WORKSPACE/"
+
+      - name: Push to AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur"
+          git clone ssh://aur@aur.archlinux.org/animesama-cli.git /tmp/aur
+          cp /home/builder/PKGBUILD /home/builder/.SRCINFO /tmp/aur/
+          cd /tmp/aur
+          git config user.name "Miro-sh"
+          git config user.email "65116975+Miro-sh@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to ${GITHUB_REF_NAME#v}" || echo "No changes"
+          git push
+
+      - name: Commit PKGBUILD back to this repo
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "chore(aur): bump to ${GITHUB_REF_NAME#v}" || echo "No changes"
+          git push
+
+  homebrew:
+    name: Update Homebrew formula
+    runs-on: macos-latest
+    needs: pypi
+    steps:
+      - name: Wait for the release on PyPI
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 30); do
+            if curl -fs "https://pypi.org/pypi/animesama-cli/${VERSION}/json" > /dev/null; then
+              echo "Release available on PyPI"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Release not found on PyPI after 5 minutes"
+          exit 1
+
+      - name: Generate formula with poet
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install animesama-cli=="${GITHUB_REF_NAME#v}"
+          gem install homebrew-pypi-poet --no-document
+          mkdir -p Formula
+          poet --formula animesama-cli > Formula/animesama-cli.rb
+          sed -i '' 's/depends_on "python@/depends_on "mpv"\n  depends_on "python@/' Formula/animesama-cli.rb
+          cat Formula/animesama-cli.rb
+
+      - name: Push to homebrew-tap
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/Miro-sh/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp Formula/animesama-cli.rb tap/Formula/
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/animesama-cli.rb
+          git commit -m "animesama-cli ${GITHUB_REF_NAME#v}" || echo "No changes"
+          git push
