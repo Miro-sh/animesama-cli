@@ -31,7 +31,7 @@ echo.
 python -m pip install --upgrade pip
 python -m pip install --user pipx
 python -m pipx ensurepath
-python -m pipx install --force animesama-cli
+python -m pipx install --force animesama
 
 echo.
 echo ================================================

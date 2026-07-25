@@ -17,7 +17,7 @@ fi
 
 echo "Installation de animesama-cli via pipx..."
 pipx ensurepath
-pipx install --force animesama-cli
+pipx install --force animesama
 
 mkdir -p "$HOME/.local/share/animesama-cli"
 

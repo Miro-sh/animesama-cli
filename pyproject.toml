@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "animesama-cli"
+name = "animesama"
 version = "1.0.7"
 description = "Browse and watch anime from anime-sama.fr directly in your terminal"
 readme = "README.md"
