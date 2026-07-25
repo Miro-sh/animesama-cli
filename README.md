@@ -1,91 +1,85 @@
-<p align="center">
-  <br>
-  <a href="#-linux"><img src="https://img.shields.io/badge/os-linux-90ee90" alt="Linux"></a>
-  <a href="#-windows"><img src="https://img.shields.io/badge/os-windows-90ee90" alt="Windows"></a>
-  <br><br>
-</p>
+<div align="center">
 
-<p align="center">
-  <sub>This README is also available in &#127467;&#127479; <a href="README_french.md">French</a></sub>
-</p>
+# animesama-cli
 
-<p align="center">
-  <img src="https://repology.org/badge/vertical-allrepos/animesama-cli.svg?minversion=1.0.5" alt="Packaging status">
-</p>
+Browse and watch anime from [anime-sama.fr](https://anime-sama.fr) directly in your terminal.
 
----
+<a href="https://aur.archlinux.org/packages/animesama-cli"><img src="https://img.shields.io/aur/version/animesama-cli" alt="AUR version"></a>
+<img src="https://img.shields.io/badge/platform-linux-90ee90" alt="Linux">
+<img src="https://img.shields.io/badge/platform-windows-90ee90" alt="Windows">
 
-## &#127916; What is this?
+</div>
 
-A terminal app to browse and watch anime from [anime-sama.fr](https://anime-sama.fr). It scrapes the catalog, lets you search, keeps a watch history, and checks the weekly release schedule.
+## Overview
 
-All video playback goes through `mpv`. No browser, no ads, no clutter.
+animesama-cli is a terminal application for browsing and watching anime from [anime-sama.fr](https://anime-sama.fr). It provides catalog search, persistent watch history, and the weekly release schedule. Video playback is handled by [mpv](https://mpv.io).
 
-## &#127775; Features
+## Features
 
-- Search the entire [anime-sama.fr](https://anime-sama.fr) catalog right from your terminal
-- Two interfaces: a sleek TUI built with [Textual](https://textual.textualize.io/) and a plain CLI fallback
-- Watch history with SQLite (pick up where you left off, see which shows you've finished)
-- Weekly release schedule pulled from the site
-- Upcoming episode list from animecountdown.com
-- French dub (VF) and original Japanese with French subs (VOSTFR)
-- Works on Linux and Windows
-- Arch Linux AUR package (`animesama-cli`)
+- Full-text search of the anime-sama.fr catalog
+- Interactive TUI built with [Textual](https://textual.textualize.io/), with a standard CLI fallback
+- Watch history stored in SQLite, with resume support
+- Weekly release schedule from anime-sama.fr
+- Upcoming episodes from animecountdown.com
+- French dub (VF) and Japanese audio with French subtitles (VOSTFR)
+- Linux and Windows support; AUR package available for Arch Linux
 
-## &#9992;&#65039; Quick start
+## Installation
 
-### &#128187; Linux
+### Linux
 
-#### Debian / Ubuntu
-Make sure `curl`, `python3`, and `mpv` are installed. The script handles the rest.
+Debian / Ubuntu: requires `curl`, `python3` and `mpv`. The script installs everything else.
 
 ```sh
 sudo apt-get install curl -y
-curl -fsSL https://raw.githubusercontent.com/DictateurMiro/animesama-cli/master/install.sh -o /tmp/animesama-install.sh && chmod +x /tmp/animesama-install.sh && sh /tmp/animesama-install.sh
+curl -fsSL https://raw.githubusercontent.com/Miro-sh/animesama-cli/master/install_unix.sh -o /tmp/animesama-install.sh && chmod +x /tmp/animesama-install.sh && sh /tmp/animesama-install.sh
 ```
 
-#### Arch Linux
+Arch Linux:
+
 ```sh
 yay -S animesama-cli
 ```
 
-### &#128187; Windows
+### Windows
 
-Open PowerShell (admin not required) and paste this:
+Run the following command in PowerShell (no administrator rights required):
 
 ```powershell
-irm "https://raw.githubusercontent.com/DictateurMiro/animesama-cli/refs/heads/master/setup_animesama_cli.bat" -OutFile install.bat; .\install.bat
+irm "https://raw.githubusercontent.com/Miro-sh/animesama-cli/refs/heads/master/install_windows.bat" -OutFile install.bat; .\install.bat
 ```
 
-This grabs Python deps, fetches mpv, and sets up the launcher scripts. After it finishes, open a fresh terminal and run `animesama-cli`.
+The script installs the Python dependencies, downloads mpv, and creates the launcher scripts. Restart your terminal after installation, then run `animesama-cli`.
 
-## &#128161; Usage
+## Usage
 
-```sh
-animesama-cli                  # Launch the TUI (or CLI if Textual is not installed)
-animesama-cli --cli            # Force CLI mode
-animesama-cli naruto           # Search directly
-animesama-cli --vf naruto      # Search French dub only
-animesama-cli -c               # Show watch history
-animesama-cli -cf              # History with last-episode check
-animesama-cli -p               # Weekly schedule
-animesama-cli -up              # Upcoming episodes
-animesama-cli --debug naruto   # Search with debug output
-animesama-cli -h               # Show all options
-```
+| Command | Description |
+|---------|-------------|
+| `animesama-cli` | Launch the TUI (falls back to CLI if Textual is not installed) |
+| `animesama-cli --cli` | Force CLI mode |
+| `animesama-cli naruto` | Search directly |
+| `animesama-cli --vf naruto` | Search French dub only |
+| `animesama-cli -c` | Show watch history |
+| `animesama-cli -cf` | History with last-episode check |
+| `animesama-cli -p` | Weekly schedule |
+| `animesama-cli -up` | Upcoming episodes |
+| `animesama-cli --debug naruto` | Search with debug output |
+| `animesama-cli -h` | Show all options |
 
-The history lives at `~/.local/share/animesama-cli/history.db`. You can open it with any SQLite browser.
+The watch history is stored at `~/.local/share/animesama-cli/history.db` and can be opened with any SQLite browser.
 
-## &#128295; Uninstall
+## Uninstall
 
 <details>
 
 **AUR:**
+
 ```sh
 yay -R animesama-cli
 ```
 
 **Linux (manual install):**
+
 ```sh
 sudo rm /usr/local/bin/animesama-cli
 rm -rf ~/animesama-cli
@@ -93,6 +87,7 @@ rm -rf ~/.local/share/animesama-venv
 ```
 
 **Windows:**
+
 ```batch
 @echo off
 set "INSTALL_DIR=%USERPROFILE%\AnimeSamaCLI"
@@ -119,49 +114,45 @@ endlocal
 
 </details>
 
-## &#128218; Dependencies
+## Dependencies
 
 | Category | Packages |
 |----------|----------|
-| Python   | `requests`, `beautifulsoup4`, `textual` (optional for TUI), `windows-curses` (Windows only) |
+| Python   | `requests`, `beautifulsoup4`, `textual` (optional, for the TUI), `windows-curses` (Windows only) |
 | System   | `mpv`, `git`, `python3` |
 
 Built-in Python modules used: `sqlite3`, `re`, `json`, `sys`, `os`, `time`, `datetime`, `locale`, `pathlib`, `subprocess`, `asyncio`.
 
-## &#10067; FAQ
+## FAQ
 
 <details>
   <summary>Click to expand</summary>
   <br>
 
-**Can I change or disable subtitles?** No. Subs are baked into the video stream.
+**Can I change or disable subtitles?** No. Subtitles are embedded in the video stream.
 
-**Can I watch in French?** Yes. Use `--vf` or `--vf` in search.
+**Can I watch in French?** Yes. Use `--vf` when searching.
 
-**Can I switch audio language?** No. The site only hosts French dub and Japanese with French subtitles.
+**Can I switch the audio language?** No. The site only provides French dub and Japanese audio with French subtitles.
 
-**Can I use a different video source?** No, unless you build your own scraper.
+**Can I use a different video source?** No, unless you write your own scraper.
 
 **Can I use VLC?** No. Only `mpv` is supported.
 
-**Where do I find all the options?** `animesama-cli --help`
+**Where can I find all the options?** Run `animesama-cli --help`.
 
 </details>
 
-## &#127757; Tools in other languages
+## Related projects
 
-- [ani-cli](https://github.com/pystardust/ani-cli) : Japanese audio, English subs (4anime, gogoanime, allmanga)
-- [GoAnime](https://github.com/alvarorichard/GoAnime) : Japanese audio, Portuguese subs
-- [doccli](https://github.com/TowarzyszFatCat/doccli) : Japanese audio, Polish subs (docchi.pl)
+- [ani-cli](https://github.com/pystardust/ani-cli): Japanese audio, English subtitles (4anime, gogoanime, allmanga). animesama-cli was inspired by this project.
+- [GoAnime](https://github.com/alvarorichard/GoAnime): Japanese audio, Portuguese subtitles
+- [doccli](https://github.com/TowarzyszFatCat/doccli): Japanese audio, Polish subtitles (docchi.pl)
 
-This project was inspired by [ani-cli](https://github.com/pystardust/ani-cli).
+## Contributing
 
-## &#129309; Contributing
+Contributions are welcome. Please read [CONTRIBUTING.md](./contribution.md) before opening an issue or pull request. You can also join the [Discord server](https://discord.gg/MwHAXPpJ8C) to discuss the project.
 
-See [CONTRIBUTING.md](./contribution.md) for the rules on PRs and issues. If you want to help but not write code, join the [Discord](https://discord.gg/MwHAXPpJ8C), star the repo, or just spread the word.
+## Disclaimer
 
-## &#9888;&#65039; Disclaimer
-
-See [DISCLAIMER.md](./disclaimer.md).
-
-The short version: this is a browser for your terminal. It fetches publicly available content. What you do with it is up to you. No content is hosted on this repo.
+This project only fetches publicly available content and hosts nothing itself. Users are responsible for how they use it. See [DISCLAIMER.md](./disclaimer.md) for details.
