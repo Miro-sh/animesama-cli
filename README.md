@@ -5,7 +5,7 @@
 Browse and watch anime from [anime-sama.fr](https://anime-sama.fr) directly in your terminal.
 
 <a href="https://aur.archlinux.org/packages/animesama-cli"><img src="https://img.shields.io/aur/version/animesama-cli" alt="AUR version"></a>
-<a href="https://pypi.org/project/animesama-cli"><img src="https://img.shields.io/pypi/v/animesama-cli" alt="PyPI version"></a>
+<a href="https://pypi.org/project/animesama"><img src="https://img.shields.io/pypi/v/animesama" alt="PyPI version"></a>
 <img src="https://img.shields.io/badge/platform-linux-90ee90" alt="Linux">
 <img src="https://img.shields.io/badge/platform-windows-90ee90" alt="Windows">
 
@@ -53,7 +53,7 @@ yay -S animesama-cli
 Any distribution with [pipx](https://pipx.pypa.io) (requires `mpv`):
 
 ```sh
-pipx install animesama-cli
+pipx install animesama
 ```
 
 ### Windows
@@ -96,7 +96,7 @@ yay -R animesama-cli
 **pipx (Linux and Windows):**
 
 ```sh
-pipx uninstall animesama-cli
+pipx uninstall animesama
 ```
 
 **Windows (mpv installed by the script):**

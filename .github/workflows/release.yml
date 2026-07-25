@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/animesama-cli
+      url: https://pypi.org/p/animesama
     permissions:
       id-token: write
     steps:
@@ -99,7 +99,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           for i in $(seq 1 30); do
-            if curl -fs "https://pypi.org/pypi/animesama-cli/${VERSION}/json" > /dev/null; then
+            if curl -fs "https://pypi.org/pypi/animesama/${VERSION}/json" > /dev/null; then
               echo "Release available on PyPI"
               exit 0
             fi
@@ -112,12 +112,12 @@ jobs:
         run: |
           python3 -m venv venv
           source venv/bin/activate
-          pip install animesama-cli=="${GITHUB_REF_NAME#v}"
+          pip install animesama=="${GITHUB_REF_NAME#v}"
           gem install homebrew-pypi-poet --no-document
           mkdir -p Formula
-          poet --formula animesama-cli > Formula/animesama-cli.rb
-          sed -i '' 's/depends_on "python@/depends_on "mpv"\n  depends_on "python@/' Formula/animesama-cli.rb
-          cat Formula/animesama-cli.rb
+          poet --formula animesama > Formula/animesama.rb
+          sed -i '' 's/depends_on "python@/depends_on "mpv"\n  depends_on "python@/' Formula/animesama.rb
+          cat Formula/animesama.rb
 
       - name: Push to homebrew-tap
         env:
@@ -125,10 +125,10 @@ jobs:
         run: |
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/Miro-sh/homebrew-tap.git" tap
           mkdir -p tap/Formula
-          cp Formula/animesama-cli.rb tap/Formula/
+          cp Formula/animesama.rb tap/Formula/
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/animesama-cli.rb
-          git commit -m "animesama-cli ${GITHUB_REF_NAME#v}" || echo "No changes"
+          git add Formula/animesama.rb
+          git commit -m "animesama ${GITHUB_REF_NAME#v}" || echo "No changes"
           git push
