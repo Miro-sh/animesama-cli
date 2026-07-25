@@ -80,10 +80,28 @@ jobs:
           git commit -m "Update to ${GITHUB_REF_NAME#v}" || echo "No changes"
           git push
 
-      - name: Commit PKGBUILD back to this repo
+      - name: Upload PKGBUILD artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pkgbuild
+          path: |
+            PKGBUILD
+            .SRCINFO
+          retention-days: 1
+
+  sync-pkgbuild:
+    name: Commit PKGBUILD back to this repo
+    runs-on: ubuntu-latest
+    needs: aur
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: pkgbuild
+
+      - name: Commit and push
         run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          cd "$GITHUB_WORKSPACE"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add PKGBUILD .SRCINFO
@@ -104,20 +122,23 @@ jobs:
       - name: Wait for the release on PyPI
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          for i in $(seq 1 30); do
-            if curl -fs "https://pypi.org/pypi/animesama/${VERSION}/json" > /dev/null; then
-              echo "Release available on PyPI"
+          for i in $(seq 1 40); do
+            if curl -fs "https://pypi.org/simple/animesama/" | grep -q "animesama-${VERSION}.tar.gz"; then
+              echo "Release available in the pip index"
               exit 0
             fi
-            sleep 10
+            sleep 15
           done
-          echo "Release not found on PyPI after 5 minutes"
+          echo "Release not found in the pip index after 10 minutes"
           exit 1
 
       - name: Generate formula
         run: |
           python -m venv venv
-          ./venv/bin/pip install animesama=="${GITHUB_REF_NAME#v}"
+          for i in 1 2 3; do
+            ./venv/bin/pip install animesama=="${GITHUB_REF_NAME#v}" && break
+            sleep 15
+          done
           ./venv/bin/python scripts/generate_homebrew_formula.py "${GITHUB_REF_NAME#v}" Formula
           cat Formula/animesama.rb
 
