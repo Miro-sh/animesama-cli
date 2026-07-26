@@ -108,6 +108,108 @@ jobs:
           git commit -m "chore(aur): bump to ${GITHUB_REF_NAME#v}" || echo "No changes"
           git push origin HEAD:master
 
+  packages:
+    name: Build deb/rpm/apk and publish repos to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: pypi
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the release in the pip index
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 40); do
+            if curl -fs "https://pypi.org/simple/animesama/" | grep -q "animesama-${VERSION}.tar.gz"; then
+              echo "Release available in the pip index"
+              exit 0
+            fi
+            sleep 15
+          done
+          exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build package root
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p pkgroot/usr/share/animesama-cli pkgroot/usr/bin
+          python -m pip install --target=pkgroot/usr/share/animesama-cli \
+            --only-binary=:all: --platform=any --abi=none --python-version=39 --no-deps \
+            "animesama==$VERSION" requests beautifulsoup4 soupsieve textual rich pygments \
+            platformdirs typing_extensions markdown-it-py mdurl "linkify-it-py<3" \
+            uc-micro-py mdit-py-plugins urllib3 certifi idna charset-normalizer
+          printf '#!/bin/sh\nexec python3 /usr/share/animesama-cli/anime_sama.py "$@"\n' > pkgroot/usr/bin/animesama-cli
+          chmod +x pkgroot/usr/bin/animesama-cli
+
+      - name: Install nfpm
+        uses: goreleaser/nfpm-action@v2
+
+      - name: Build deb/rpm/apk packages
+        run: |
+          export VERSION="${GITHUB_REF_NAME#v}"
+          nfpm package --config nfpm.yaml --packager deb --target dist/
+          nfpm package --config nfpm.yaml --packager rpm --target dist/
+          nfpm package --config nfpm.yaml --packager apk --target dist/
+          ls -la dist/
+
+      - name: Install repo tools
+        run: sudo apt-get update && sudo apt-get install -y reprepro createrepo-c rpm
+
+      - name: Import GPG signing key
+        env:
+          APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+        run: echo "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Build signed apt repository
+        run: |
+          KEYID=$(gpg --list-keys --with-colons | awk -F: '/^pub/ {print $5}')
+          mkdir -p apt-repo/conf
+          cat > apt-repo/conf/distributions <<EOF
+          Origin: animesama-cli
+          Label: animesama-cli
+          Codename: stable
+          Architectures: amd64
+          Components: main
+          Description: animesama-cli apt repository
+          SignWith: ${KEYID}
+          EOF
+          reprepro -b apt-repo includedeb stable dist/*.deb
+          mkdir -p site/apt
+          cp -r apt-repo/dists apt-repo/pool site/apt/
+
+      - name: Build signed rpm repository
+        run: |
+          KEYID=$(gpg --list-keys --with-colons | awk -F: '/^pub/ {print $5}')
+          echo "%_signature gpg" > ~/.rpmmacros
+          echo "%_gpg_name ${KEYID}" >> ~/.rpmmacros
+          rpm --addsign dist/*.rpm
+          mkdir -p site/rpm
+          cp dist/*.rpm site/rpm/
+          createrepo_c site/rpm
+          cat > site/rpm/animesama.repo <<EOF
+          [animesama]
+          name=animesama-cli
+          baseurl=https://miro-sh.github.io/animesama-cli/rpm
+          enabled=1
+          gpgcheck=1
+          repo_gpgcheck=0
+          gpgkey=https://miro-sh.github.io/animesama-cli/animesama.gpg
+          EOF
+
+      - name: Assemble site
+        run: |
+          cp animesama.gpg site/
+          cp dist/*.deb dist/*.rpm dist/*.apk site/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: gh-pages
+
   homebrew:
     name: Update Homebrew formula
     runs-on: ubuntu-latest
