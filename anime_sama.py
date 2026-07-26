@@ -542,6 +542,10 @@ def display_history(full_check=False):
         return
     print("Entrée non reconnue.")
 
+def _is_scan_url(url):
+    parts = [p for p in url.strip().split('/') if p]
+    return len(parts) >= 3 and parts[2].lower().startswith('scan')
+
 def afficher_planning():
     print("\n--- Planning des animes (texte) ---")
     url = f"https://{DOMAIN}/planning/"
@@ -566,6 +570,8 @@ def afficher_planning():
                     day_content, re.DOTALL
                 )
             for card_url, card_title in cards:
+                if _is_scan_url(card_url):
+                    continue
                 planning[current_day].append((card_title.strip(), card_url.strip(), "", ""))
     days_list = list(planning.keys())
     for i, day in enumerate(days_list, 1):
@@ -907,7 +913,7 @@ Screen {
     width: 100%;
 }
 
-#nav {
+#nav, #lang-nav {
     background: transparent;
     border: none;
     height: auto;
@@ -915,14 +921,14 @@ Screen {
     padding: 0;
 }
 
-#nav > ListItem {
+#nav > ListItem, #lang-nav > ListItem {
     padding: 0 1;
     background: transparent;
     color: $as-muted;
     border-left: tall transparent;
 }
 
-#nav > ListItem.-highlight {
+#nav > ListItem.-highlight, #lang-nav > ListItem.-highlight {
     background: $as-panel;
     color: $as-primary;
     text-style: bold;
@@ -981,6 +987,30 @@ ListView {
 #nav {
     height: auto;
     max-height: 100%;
+    margin-top: 1;
+}
+
+#lang-nav {
+    layout: horizontal;
+    height: auto;
+    margin-top: 1;
+}
+
+#lang-nav > ListItem {
+    width: auto;
+    padding: 0 1;
+    border-left: none;
+}
+
+#lang-nav > ListItem.-highlight {
+    border-left: none;
+}
+
+#sep {
+    color: $as-border;
+    width: 100%;
+    height: 1;
+    margin-top: 1;
 }
 
 #results-zone, #planning-zone {
@@ -996,6 +1026,10 @@ Column {
     margin-right: 1;
 }
 
+Column.narrow {
+    width: 16;
+}
+
 Column:focus-within {
     border: round $as-primary;
 }
@@ -1003,6 +1037,14 @@ Column:focus-within {
 Column ListView {
     margin: 0;
     height: 1fr;
+}
+
+Column ListView > ListItem {
+    height: auto;
+}
+
+Column ListView > ListItem > Label {
+    width: 100%;
 }
 
 * {
@@ -1079,12 +1121,13 @@ if TEXTUAL_AVAILABLE:
         ("À venir", "upcoming"),
     ]
     NAV_INDEX = {action: i for i, (_, action) in enumerate(NAV_ITEMS)}
+    LANG_ITEMS = ["VOSTFR", "VF"]
 
     HINT_COMMON = "[bold #8db8ff]tab[/] naviguer   [bold #8db8ff]échap[/] retour   [bold #8db8ff]ctrl+q[/] quitter"
     HINTS = {
         "search": f"[bold #8db8ff]entrée[/] rechercher / ouvrir   {HINT_COMMON}",
         "history": f"[bold #8db8ff]entrée[/] reprendre   [bold #8db8ff]d[/] supprimer   {HINT_COMMON}",
-        "planning": f"[bold #8db8ff]entrée[/] ouvrir   {HINT_COMMON}",
+        "planning": f"[bold #8db8ff]entrée[/] ouvrir   [bold #8db8ff]← →[/] naviguer   {HINT_COMMON}",
         "upcoming": HINT_COMMON,
     }
 
@@ -1102,6 +1145,34 @@ if TEXTUAL_AVAILABLE:
             return "VF"
         return ""
 
+    def _version_tag(url):
+        v = _version_for_url(url)
+        if not v:
+            low = url.lower()
+            if "/vkr" in low:
+                v = "VKR"
+            elif "/va" in low:
+                v = "VA"
+        colors = {"VOSTFR": "#86d6a2", "VF": "#6ea8fe"}
+        color = colors.get(v, "#6b6577")
+        return f"  [{color}]{v}[/]" if v else ""
+
+    def _season_tag(url):
+        low = url.lower()
+        match = re.search(r'/saison(\d+)(hs)?', low)
+        if match:
+            saison = f"Saison {match.group(1)}"
+            if match.group(2):
+                saison += " HS"
+            return f"  [#6b6577]{saison}[/]"
+        if "/kai" in low:
+            return "  [#6b6577]Kai[/]"
+        if "/oav" in low or "/ova" in low:
+            return "  [#6b6577]OAV[/]"
+        if "/film" in low:
+            return "  [#6b6577]Film[/]"
+        return ""
+
     def _fetch_seasons(anime_url):
         try:
             response = requests.get(anime_url, headers=ANIME_HEADERS)
@@ -1111,8 +1182,8 @@ if TEXTUAL_AVAILABLE:
 
 
     class Column(Static):
-        def __init__(self, title, kind, entries, meta=None):
-            super().__init__()
+        def __init__(self, title, kind, entries, meta=None, classes=None):
+            super().__init__(classes=classes)
             self.col_title = title
             self.kind = kind
             self.entries = entries
@@ -1136,10 +1207,14 @@ if TEXTUAL_AVAILABLE:
                 later.remove()
         zone.mount(column)
 
-    def _open_anime(pane, zone, anchor_col, anime_name, anime_url):
+    def _open_anime(pane, zone, anchor_col, anime_name, anime_url, vf=False):
         seasons = _fetch_seasons(anime_url)
         if not seasons:
             pane.app.set_status("[#e06c75]Aucune saison trouvée.[/]")
+            return
+        if vf:
+            vf_seasons = [dict(s, url=s['url'].replace('vostfr', 'vf')) for s in seasons]
+            _open_seasons(pane, zone, anchor_col, f"{anime_name} (VF)", anime_url, vf_seasons, anime_name)
             return
         versions = {}
         for season in seasons:
@@ -1243,7 +1318,8 @@ if TEXTUAL_AVAILABLE:
         label, payload = col.entries[idx]
         if col.kind == "results":
             anime_name, anime_url = payload
-            _open_anime(pane, zone, col, anime_name, anime_url)
+            vf = getattr(pane.app, "vf_mode", False)
+            _open_anime(pane, zone, col, anime_name, anime_url, vf=vf)
         elif col.kind == "versions":
             _open_seasons_for_version(pane, zone, col, label, payload)
         elif col.kind == "seasons":
@@ -1294,14 +1370,16 @@ if TEXTUAL_AVAILABLE:
             if not query:
                 self.result_label.update("")
                 return
-            self.result_label.update(f"Recherche de \"{query}\"…")
-            animes, urls = AnimeDownloader().get_catalogue(query)
+            vf = getattr(self.app, "vf_mode", False)
+            lang = "VF" if vf else "VOSTFR"
+            self.result_label.update(f"Recherche de \"{query}\" ({lang})…")
+            animes, urls = AnimeDownloader().get_catalogue(query, vf=vf)
             if not animes:
-                self.result_label.update("[#e06c75]Aucun anime trouvé.[/]")
+                self.result_label.update(f"[#e06c75]Aucun anime trouvé ({lang}).[/]")
                 return
             entries = [(name, (name, url)) for name, url in zip(animes, urls)]
             _mount_column(self.zone, None, Column(query, "results", entries))
-            self.result_label.update(f"[#86d6a2]{len(animes)} résultat(s)[/]")
+            self.result_label.update(f"[#86d6a2]{len(animes)} résultat(s) ({lang})[/]")
 
         def on_list_view_selected(self, event):
             _handle_column_select(self, self.zone, event)
@@ -1420,7 +1498,7 @@ if TEXTUAL_AVAILABLE:
             self.border_title = "Planning"
             if self.days:
                 entries = [(day.strip(), day.strip()) for day in self.days]
-                _mount_column(self.zone, None, Column("Jours", "days", entries))
+                _mount_column(self.zone, None, Column("Jours", "days", entries, classes="narrow"))
 
         def get_planning(self):
             url = f"https://{DOMAIN}/planning/"
@@ -1445,6 +1523,8 @@ if TEXTUAL_AVAILABLE:
                                 day_content, re.DOTALL
                             )
                         for card_url, card_title in cards:
+                            if _is_scan_url(card_url):
+                                continue
                             planning[current_day].append((card_title.strip(), card_url.strip(), "", ""))
                 return list(planning.keys()), planning
             except Exception:
@@ -1466,7 +1546,7 @@ if TEXTUAL_AVAILABLE:
                 selected_day = self.days[idx]
                 animes = self.planning[selected_day]
                 entries = [
-                    (title, (title, url, time, version))
+                    (f"{title}{_version_tag(url)}{_season_tag(url)}", (title, url, time, version))
                     for (title, url, time, version) in animes
                 ]
                 if not entries:
@@ -1487,6 +1567,18 @@ if TEXTUAL_AVAILABLE:
                 _open_episodes(self, self.zone, col, title, saison_name, season_url)
             else:
                 _handle_column_select(self, self.zone, event)
+
+        def key_right(self):
+            focused = self.app.focused
+            if not isinstance(focused, ListView) or not isinstance(focused.parent, Column):
+                return
+            idx = focused.index
+            if idx is None or idx < 0 or idx >= len(focused.children):
+                return
+            self.on_list_view_selected(ListView.Selected(focused, focused.children[idx], idx))
+
+        def key_left(self):
+            _pop_column(self.zone)
 
         def key_escape(self):
             if _pop_column(self.zone):
@@ -1590,27 +1682,44 @@ if TEXTUAL_AVAILABLE:
             ("ctrl+q", "quit", "Quitter"),
         ]
 
-        def __init__(self, start_screen=None, search_term=None, pre_screen=None):
+        def __init__(self, start_screen=None, search_term=None, pre_screen=None, vf_mode=False):
             super().__init__()
             self.start_screen = start_screen
             self.search_term = search_term
             self.pre_screen = pre_screen
             self.current_pane = None
             self.current_pane_name = None
+            self.vf_mode = vf_mode
 
         def compose(self) -> ComposeResult:
             with Container(id="app-grid"):
                 with Container(id="sidebar"):
                     yield Label("╭────────────╮\n│ anime-sama │\n╰────────────╯", id="logo")
                     yield Label("", id="domain-status")
+                    lang_items = [ListItem(Label(f" {text}")) for text in LANG_ITEMS]
+                    self.lang_nav = ListView(*lang_items, id="lang-nav")
+                    yield self.lang_nav
+                    yield Label("─" * 14, id="sep")
                     items = [ListItem(Label(f" {text}")) for text, _ in NAV_ITEMS]
                     self.nav = ListView(*items, id="nav")
                     yield self.nav
                 yield Container(id="content")
             yield Static("", id="status-bar", markup=True)
 
+        def _update_lang_display(self):
+            for i, item in enumerate(self.lang_nav.children):
+                label = item.query_one(Label)
+                name = LANG_ITEMS[i]
+                active = (i == 1) == self.vf_mode
+                if active:
+                    label.update(f"[bold #6ea8fe] {name}[/]")
+                else:
+                    label.update(f"[#6b6577] {name}[/]")
+
         async def on_mount(self):
             self.query_one("#domain-status", Label).update(f"[#6b6577]●[/] {DOMAIN}")
+            self.lang_nav.index = 1 if self.vf_mode else 0
+            self._update_lang_display()
             threading.Thread(target=self._resolve_domain_bg, daemon=True).start()
             pane = "search"
             if self.start_screen in NAV_INDEX and self.start_screen != "search":
@@ -1674,6 +1783,17 @@ if TEXTUAL_AVAILABLE:
             if event.control is self.nav:
                 action = NAV_ITEMS[self.nav.index][1]
                 asyncio.create_task(self.show_pane(action))
+            elif event.control is self.lang_nav:
+                self.vf_mode = self.lang_nav.index == 1
+                self._update_lang_display()
+                lang = "VF" if self.vf_mode else "VOSTFR"
+                self.set_status(f"[#86d6a2]Langue de recherche : {lang}[/]")
+                if self.current_pane_name == "search" and self.current_pane is not None:
+                    query = self.current_pane.input.value.strip()
+                    if query:
+                        self.current_pane.on_input_submitted(
+                            Input.Submitted(self.current_pane.input, query)
+                        )
 
 
     def tui_main(args):
@@ -1686,11 +1806,11 @@ if TEXTUAL_AVAILABLE:
             start_screen = "upcoming"
 
         if args.check_final:
-            app = AnimeSamaTUI(pre_screen=HistoryCheckFinalScreen())
+            app = AnimeSamaTUI(pre_screen=HistoryCheckFinalScreen(), vf_mode=args.vf)
             app.run()
         else:
             search_term = " ".join(args.query) if args.query else None
-            app = AnimeSamaTUI(start_screen=start_screen, search_term=search_term)
+            app = AnimeSamaTUI(start_screen=start_screen, search_term=search_term, vf_mode=args.vf)
             app.run()
 
 def main():
