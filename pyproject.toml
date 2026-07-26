@@ -26,6 +26,8 @@ dependencies = [
     "requests",
     "beautifulsoup4",
     "textual>=0.44.0",
+    "pillow",
+    "rich-pixels",
     "windows-curses; sys_platform == 'win32'",
 ]
 

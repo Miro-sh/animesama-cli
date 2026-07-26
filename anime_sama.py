@@ -21,7 +21,7 @@ import threading
 try:
     from textual.app import App, ComposeResult
     from textual.widgets import Static, ListView, ListItem, Label, Input
-    from textual.containers import Container, Horizontal
+    from textual.containers import Container, Horizontal, VerticalScroll
     from textual.reactive import reactive
     from textual.message import Message
     from textual.screen import Screen
@@ -44,6 +44,26 @@ MENU_ITEMS = [
 
 
 FALLBACK_DOMAIN = "anime-sama.to"
+
+KITTY_COVER_ID = 1337
+
+def _kitty_dbg(msg):
+    if not os.environ.get("ANIMESAMA_KITTY_DEBUG"):
+        return
+    try:
+        with open("/tmp/animesama_kitty_debug.log", "a") as f:
+            f.write(str(msg) + "\n")
+    except OSError:
+        pass
+
+def _supports_kitty_graphics():
+    term = os.environ.get("TERM", "")
+    if "kitty" in term:
+        return True
+    if os.environ.get("KITTY_WINDOW_ID"):
+        return True
+    prog = os.environ.get("TERM_PROGRAM", "").lower()
+    return prog in ("ghostty", "wezterm", "konsole")
 
 def resolve_final_domain(domain):
     try:
@@ -1110,6 +1130,59 @@ ListView:focus > ListItem.-highlight {
     content-align: center middle;
     color: $as-muted;
 }
+
+#info-slide {
+    layout: horizontal;
+    height: 1fr;
+    overflow-x: auto;
+}
+
+#info-body, .info-side {
+    width: 50%;
+    height: 100%;
+    padding: 0 2;
+}
+
+#info-body > Label, .info-side > Label {
+    width: 100%;
+}
+
+.info-side {
+    border-left: solid $as-border;
+}
+
+#info-cover {
+    width: 100%;
+    content-align: center top;
+}
+
+#info-grid {
+    layout: grid;
+    grid-size: 2;
+    grid-gutter: 1 2;
+    height: auto;
+    width: 100%;
+}
+
+.info-cell {
+    height: auto;
+    width: 100%;
+}
+
+.info-alt {
+    text-style: italic;
+}
+
+.info-section {
+    color: $as-primary;
+    text-style: bold;
+    padding-top: 1;
+}
+
+#info-synopsis {
+    color: $as-text;
+    padding-bottom: 1;
+}
 """
 
 
@@ -1125,9 +1198,9 @@ if TEXTUAL_AVAILABLE:
 
     HINT_COMMON = "[bold #8db8ff]tab[/] naviguer   [bold #8db8ff]échap[/] retour   [bold #8db8ff]ctrl+q[/] quitter"
     HINTS = {
-        "search": f"[bold #8db8ff]entrée[/] rechercher / ouvrir   {HINT_COMMON}",
-        "history": f"[bold #8db8ff]entrée[/] reprendre   [bold #8db8ff]d[/] supprimer   {HINT_COMMON}",
-        "planning": f"[bold #8db8ff]entrée[/] ouvrir   [bold #8db8ff]← →[/] naviguer   {HINT_COMMON}",
+        "search": f"[bold #8db8ff]entrée[/] rechercher / ouvrir   [bold #8db8ff]i[/] infos   {HINT_COMMON}",
+        "history": f"[bold #8db8ff]entrée[/] reprendre   [bold #8db8ff]i[/] infos   [bold #8db8ff]d[/] supprimer   {HINT_COMMON}",
+        "planning": f"[bold #8db8ff]entrée[/] ouvrir   [bold #8db8ff]i[/] infos   [bold #8db8ff]← →[/] naviguer   {HINT_COMMON}",
         "upcoming": HINT_COMMON,
     }
 
@@ -1179,6 +1252,88 @@ if TEXTUAL_AVAILABLE:
             return get_seasons(response.text)
         except Exception:
             return []
+
+    def _anime_page_url(url):
+        match = re.search(r'((?:https?://[^/]+)?/catalogue/[^/]+)', url)
+        if not match:
+            return None
+        path = match.group(1)
+        if path.startswith('http'):
+            return path + '/'
+        return f"https://{DOMAIN}{path}/"
+
+    def _fetch_anime_info(anime_url):
+        info = {"title": "", "alt_titles": "", "genres": [], "synopsis": "", "seasons": [], "cover": "", "details": []}
+        try:
+            response = requests.get(anime_url, headers=ANIME_HEADERS, timeout=15)
+        except Exception:
+            return None
+        soup = BeautifulSoup(response.text, 'html.parser')
+        h1 = soup.find('h1')
+        if h1:
+            info["title"] = h1.get_text(strip=True)
+        alt = soup.find('h2', class_=lambda c: c and 'clamp-alters' in c)
+        if alt:
+            info["alt_titles"] = alt.get_text(strip=True)
+        wrap = soup.find('div', class_='genres-wrap')
+        if wrap:
+            info["genres"] = [g.get_text(strip=True) for g in wrap.find_all('span', class_='genre-pill')]
+        syn = soup.find(class_=lambda c: c and 'synopsis' in str(c).lower())
+        if syn:
+            info["synopsis"] = syn.get_text(' ', strip=True)
+        cover = soup.find('img', id='coverOeuvre')
+        if cover and cover.get('src'):
+            info["cover"] = cover['src']
+        else:
+            og = soup.find('meta', property='og:image')
+            if og and og.get('content'):
+                info["cover"] = og['content']
+        grid = soup.find('div', class_='info-grid')
+        if grid:
+            for lbl in grid.find_all('span', class_='info-lbl'):
+                key = lbl.get_text(strip=True)
+                if not key:
+                    continue
+                val_tag = lbl.find_next_sibling(['span', 'div'], class_='info-val')
+                if not val_tag:
+                    continue
+                val = val_tag.get_text(' ', strip=True).replace('Voir plus', '').strip(' ,')
+                if val and val != '?':
+                    info["details"].append((key, val))
+        info["seasons"] = get_seasons(response.text)
+        return info
+
+    def _show_anime_info(pane, url, title=""):
+        page_url = _anime_page_url(url)
+        if not page_url:
+            pane.app.set_status("[#e06c75]Impossible de trouver la page de l'anime.[/]")
+            return
+        pane.app.set_status("Chargement des infos…")
+        info = _fetch_anime_info(page_url)
+        pane.app.reset_status()
+        if not info:
+            pane.app.set_status("[#e06c75]Impossible de charger les infos de l'anime.[/]")
+            return
+        pane.app.push_screen(AnimeInfoScreen(info, title))
+
+    def _focused_anime_url(pane):
+        focused = pane.app.focused
+        if not isinstance(focused, ListView) or not isinstance(focused.parent, Column):
+            return None, ""
+        col = focused.parent
+        idx = focused.index
+        if col.kind in ("results", "animes", "versions"):
+            if idx is None or idx < 0 or idx >= len(col.entries):
+                return None, ""
+            payload = col.entries[idx][1]
+            if col.kind == "versions":
+                return payload, col.meta.get("anime_name", "")
+            return payload[1], payload[0]
+        if col.kind in ("seasons", "episodes"):
+            url = col.meta.get("season_url")
+            if url:
+                return url, col.meta.get("anime_name", "")
+        return None, ""
 
 
     class Column(Static):
@@ -1384,6 +1539,13 @@ if TEXTUAL_AVAILABLE:
         def on_list_view_selected(self, event):
             _handle_column_select(self, self.zone, event)
 
+        def key_i(self):
+            if isinstance(self.app.focused, Input):
+                return
+            url, title = _focused_anime_url(self)
+            if url:
+                _show_anime_info(self, url, title)
+
         def key_escape(self):
             if _pop_column(self.zone):
                 return
@@ -1459,6 +1621,15 @@ if TEXTUAL_AVAILABLE:
             label = f" {anime_name}  [#6b6577]Episode {ep}[/]  [italic #6ea8fe]{saison}[/]"
             item = self.list_view.children[idx]
             item.query_one(Label).update(label)
+
+        def key_i(self):
+            if not hasattr(self, "list_view") or not hasattr(self, "entries"):
+                return
+            idx = self.list_view.index
+            if idx is None or idx < 0 or idx >= len(self.entries):
+                return
+            entry = self.entries[idx]
+            _show_anime_info(self, entry[4], entry[1])
 
         def key_d(self):
             self._delete_selected_entry()
@@ -1577,6 +1748,11 @@ if TEXTUAL_AVAILABLE:
                 return
             self.on_list_view_selected(ListView.Selected(focused, focused.children[idx], idx))
 
+        def key_i(self):
+            url, title = _focused_anime_url(self)
+            if url:
+                _show_anime_info(self, url, title)
+
         def key_left(self):
             _pop_column(self.zone)
 
@@ -1623,6 +1799,150 @@ if TEXTUAL_AVAILABLE:
 
         def key_escape(self):
             self.app.focus_nav()
+
+
+    class AnimeInfoScreen(Screen):
+        def __init__(self, info, anime_name=""):
+            super().__init__()
+            self.info = info
+            self.anime_name = anime_name
+
+        def compose(self) -> ComposeResult:
+            title = self.info["title"] or self.anime_name
+            with Horizontal(id="info-slide"):
+                with VerticalScroll(id="info-body"):
+                    yield Label(title, id="screen-title")
+                    if self.info["alt_titles"]:
+                        yield Label(self.info["alt_titles"], id="screen-subtitle", classes="info-alt")
+                    if self.info["genres"]:
+                        yield Label("Genres", classes="info-section")
+                        yield Label("  ".join(f"[#6ea8fe]{g}[/]" for g in self.info["genres"]))
+                    if self.info["seasons"]:
+                        yield Label("Saisons", classes="info-section")
+                        for season in self.info["seasons"]:
+                            yield Label(f" {season['name']}{_version_tag(season['url'])}")
+                    if self.info["synopsis"]:
+                        yield Label("Synopsis", classes="info-section")
+                        yield Label(self.info["synopsis"], id="info-synopsis")
+                with VerticalScroll(classes="info-side"):
+                    yield Label("Chargement de la cover…", id="empty")
+                    if self.info["details"]:
+                        yield Label("Infos", classes="info-section")
+                        with Container(id="info-grid"):
+                            for key, val in self.info["details"]:
+                                yield Label(f"[#6b6577]{key}[/]\n[bold]{val}[/]", classes="info-cell")
+            yield Label("[bold #8db8ff]← →[/] slider   [bold #8db8ff]échap[/] / [bold #8db8ff]i[/] fermer", id="screen-help")
+
+        def on_mount(self):
+            self.call_after_refresh(self._load_cover)
+
+        def _load_cover(self):
+            side = self.query_one(".info-side")
+            cover = self.info.get("cover")
+            if not cover:
+                self._cover_fallback()
+                return
+            try:
+                import io
+                from PIL import Image
+                from rich_pixels import Pixels
+            except ImportError:
+                self._cover_fallback()
+                return
+            try:
+                resp = requests.get(cover, headers=ANIME_HEADERS, timeout=15)
+                resp.raise_for_status()
+                img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+            except Exception:
+                self._cover_fallback()
+                return
+            max_w = max(side.content_size.width - 4, 10)
+            max_h = max(int(self.size.height * 0.5) * 2, 12)
+            img.thumbnail((max_w, max_h))
+            w, h = img.size
+            if h % 2:
+                img = img.crop((0, 0, w, h - 1))
+            side.query_one("#empty").remove()
+            cover_widget = Static(Pixels.from_image(img), id="info-cover")
+            cover_widget.styles.width = w
+            cover_widget.styles.height = h // 2
+            infos = side.query(".info-section")
+            if infos:
+                side.mount(cover_widget, before=infos.first())
+            else:
+                side.mount(cover_widget)
+            if _supports_kitty_graphics():
+                self._kitty_overlay(resp.content, w, h // 2, cover_widget)
+            else:
+                _kitty_dbg("kitty non détecté: TERM=%r KITTY_WINDOW_ID=%r TERM_PROGRAM=%r" % (
+                    os.environ.get("TERM"), os.environ.get("KITTY_WINDOW_ID"), os.environ.get("TERM_PROGRAM")))
+
+        def _kitty_overlay(self, data, cols, rows, widget):
+            try:
+                import base64
+                import io
+                import tempfile
+                from PIL import Image
+                img = Image.open(io.BytesIO(data)).convert("RGB")
+                fd, path = tempfile.mkstemp(suffix=".png", prefix="animesama-cover-")
+                os.close(fd)
+                img.save(path, "PNG")
+                self._kitty_file = path
+
+                attempts = {"n": 0}
+
+                def place():
+                    region = widget.region
+                    if region.width == 0:
+                        if attempts["n"] < 20:
+                            attempts["n"] += 1
+                            self.set_timer(0.1, place)
+                        return
+                    _kitty_dbg(f"place: region={region} cols={cols} rows={rows} path={path}")
+                    quiet = "" if os.environ.get("ANIMESAMA_KITTY_DEBUG") else "q=2,"
+                    b64 = base64.b64encode(path.encode()).decode()
+                    seq = (f"\x1b[{region.y + 1};{region.x + 1}H"
+                           f"\x1b_Ga=d,d=i,i={KITTY_COVER_ID},{quiet};\x1b\\"
+                           f"\x1b_Ga=T,f=100,t=f,i={KITTY_COVER_ID},{quiet}C=1,z=1,c={cols},r={rows};{b64}\x1b\\")
+                    sys.__stdout__.write(seq)
+                    sys.__stdout__.flush()
+                    _kitty_dbg(f"séquence écrite ({len(seq)} octets)")
+                self.set_timer(0.1, place)
+            except Exception as e:
+                _kitty_dbg(f"exception overlay: {e!r}")
+
+        def on_unmount(self):
+            path = getattr(self, "_kitty_file", None)
+            if not path:
+                return
+            try:
+                sys.__stdout__.write(f"\x1b_Ga=d,d=i,i={KITTY_COVER_ID},q=2;\x1b\\")
+                sys.__stdout__.flush()
+            except Exception:
+                pass
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+        def _cover_fallback(self):
+            self.query_one(".info-side #empty").remove()
+
+        def key_right(self):
+            slide = self.query_one("#info-slide")
+            panels = slide.query(".info-side")
+            if panels:
+                slide.scroll_to_widget(panels.last(), animate=True, duration=0.3)
+
+        def key_left(self):
+            slide = self.query_one("#info-slide")
+            slide.scroll_to_widget(self.query_one("#info-body"), animate=True, duration=0.3)
+
+        def key_escape(self):
+            self.app.pop_screen()
+
+        def key_i(self):
+            self.app.pop_screen()
 
 
     class HistoryCheckFinalScreen(Screen):
