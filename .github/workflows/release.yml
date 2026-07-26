@@ -154,9 +154,10 @@ jobs:
       - name: Build deb/rpm/apk packages
         run: |
           export VERSION="${GITHUB_REF_NAME#v}"
-          nfpm package --config nfpm.yaml --packager deb --target dist/
-          nfpm package --config nfpm.yaml --packager rpm --target dist/
-          nfpm package --config nfpm.yaml --packager apk --target dist/
+          mkdir -p dist
+          nfpm package --config nfpm.yaml --packager deb --target "dist/animesama-cli_${VERSION}_amd64.deb"
+          nfpm package --config nfpm.yaml --packager rpm --target "dist/animesama-cli-${VERSION}-1.x86_64.rpm"
+          nfpm package --config nfpm.yaml --packager apk --target "dist/animesama-cli_${VERSION}-r0.apk"
           ls -la dist/
 
       - name: Install repo tools
