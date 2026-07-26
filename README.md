@@ -35,9 +35,22 @@ animesama-cli is a terminal application for browsing and watching anime from [an
 
 ## Installation
 
-### Linux
+Every release is automatically published to all of these package managers:
 
-Debian / Ubuntu (apt repository):
+| Platform | Package manager | Install command |
+|----------|-----------------|-----------------|
+| Debian / Ubuntu | apt ([own repository](#debian--ubuntu)) | `sudo apt install animesama-cli` |
+| Fedora / RHEL | dnf ([own repository](#fedora--rhel)) | `sudo dnf install animesama-cli` |
+| Arch Linux | [AUR](https://aur.archlinux.org/packages/animesama-cli) | `yay -S animesama-cli` |
+| macOS | [Homebrew](https://github.com/Miro-sh/homebrew-tap) | `brew install Miro-sh/tap/animesama` |
+| Any Linux / macOS | [pipx](https://pipx.pypa.io) ([PyPI](https://pypi.org/project/animesama)) | `pipx install animesama` |
+| Windows | [Install script](#windows) | See below |
+
+The apt/dnf packages and the Homebrew formula pull in `mpv` and Python automatically. With pipx, install `mpv` through your package manager first.
+
+### Debian / Ubuntu
+
+Add the GPG key and the repository, then install:
 
 ```sh
 curl -fsSL https://miro-sh.github.io/animesama-cli/animesama.gpg | sudo gpg --dearmor -o /usr/share/keyrings/animesama.gpg
@@ -45,20 +58,30 @@ echo "deb [signed-by=/usr/share/keyrings/animesama.gpg] https://miro-sh.github.i
 sudo apt update && sudo apt install animesama-cli
 ```
 
-Fedora / RHEL (dnf repository):
+### Fedora / RHEL
+
+Add the repository file, then install:
 
 ```sh
 sudo curl -fsSL -o /etc/yum.repos.d/animesama.repo https://miro-sh.github.io/animesama-cli/rpm/animesama.repo
 sudo dnf install animesama-cli
 ```
 
-Arch Linux (AUR):
+dnf will ask you to trust the GPG key (fingerprint `035B2D3F0897E499`) on first install.
+
+### Arch Linux
 
 ```sh
 yay -S animesama-cli
 ```
 
-Any distribution with [pipx](https://pipx.pypa.io) (requires `mpv`):
+### macOS
+
+```sh
+brew install Miro-sh/tap/animesama
+```
+
+### pipx (any distribution)
 
 ```sh
 pipx install animesama
@@ -106,6 +129,12 @@ sudo dnf remove animesama-cli    # Fedora
 
 ```sh
 yay -R animesama-cli
+```
+
+**Homebrew:**
+
+```sh
+brew uninstall animesama
 ```
 
 **pipx (Linux and Windows):**
