@@ -176,7 +176,8 @@ jobs:
 
       - name: Build signed apt repository
         run: |
-          KEYID=$(gpg --list-keys --with-colons | awk -F: '/^pub/ {print $5}')
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5}')
+          if [ -z "$KEYID" ]; then echo "No secret key imported!"; exit 1; fi
           mkdir -p apt-repo/conf
           cat > apt-repo/conf/distributions <<EOF
           Origin: animesama-cli
@@ -185,15 +186,18 @@ jobs:
           Architectures: amd64
           Components: main
           Description: animesama-cli apt repository
-          SignWith: ${KEYID}
           EOF
           reprepro -b apt-repo includedeb stable dist/*.deb
+          cd apt-repo/dists/stable
+          gpg --batch --pinentry-mode loopback --yes --armor --detach-sign -u "${KEYID}" -o Release.gpg Release
+          gpg --batch --pinentry-mode loopback --yes --clearsign -u "${KEYID}" -o InRelease Release
+          cd "$OLDPWD"
           mkdir -p site/apt
           cp -r apt-repo/dists apt-repo/pool site/apt/
 
       - name: Build signed rpm repository
         run: |
-          KEYID=$(gpg --list-keys --with-colons | awk -F: '/^pub/ {print $5}')
+          KEYID=$(gpg --list-secret-keys --with-colons | awk -F: '/^sec/ {print $5}')
           echo "%_signature gpg" > ~/.rpmmacros
           echo "%_gpg_name ${KEYID}" >> ~/.rpmmacros
           rpm --addsign dist/*.rpm
