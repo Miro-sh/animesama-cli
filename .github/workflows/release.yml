@@ -160,6 +160,16 @@ jobs:
           nfpm package --config nfpm.yaml --packager apk --target "dist/animesama-cli_${VERSION}-r0.apk"
           ls -la dist/
 
+      - name: Create GitHub Release with the packages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            dist/*.deb dist/*.rpm dist/*.apk \
+          || gh release upload "$GITHUB_REF_NAME" dist/*.deb dist/*.rpm dist/*.apk --clobber
+
       - name: Install repo tools
         run: sudo apt-get update && sudo apt-get install -y reprepro createrepo-c rpm
 
