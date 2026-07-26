@@ -48,7 +48,7 @@ sudo apt update && sudo apt install animesama-cli
 Fedora / RHEL (dnf repository):
 
 ```sh
-sudo dnf config-manager --add-repo https://miro-sh.github.io/animesama-cli/rpm/animesama.repo
+sudo curl -fsSL -o /etc/yum.repos.d/animesama.repo https://miro-sh.github.io/animesama-cli/rpm/animesama.repo
 sudo dnf install animesama-cli
 ```
 
