@@ -37,11 +37,19 @@ animesama-cli is a terminal application for browsing and watching anime from [an
 
 ### Linux
 
-Debian / Ubuntu: the script installs `mpv`, `pipx` and the application.
+Debian / Ubuntu (apt repository):
 
 ```sh
-sudo apt-get install curl -y
-curl -fsSL https://raw.githubusercontent.com/Miro-sh/animesama-cli/master/install_unix.sh -o /tmp/animesama-install.sh && chmod +x /tmp/animesama-install.sh && sh /tmp/animesama-install.sh
+curl -fsSL https://miro-sh.github.io/animesama-cli/animesama.gpg | sudo gpg --dearmor -o /usr/share/keyrings/animesama.gpg
+echo "deb [signed-by=/usr/share/keyrings/animesama.gpg] https://miro-sh.github.io/animesama-cli/apt stable main" | sudo tee /etc/apt/sources.list.d/animesama.list
+sudo apt update && sudo apt install animesama-cli
+```
+
+Fedora / RHEL (dnf repository):
+
+```sh
+sudo dnf config-manager --add-repo https://miro-sh.github.io/animesama-cli/rpm/animesama.repo
+sudo dnf install animesama-cli
 ```
 
 Arch Linux (AUR):
@@ -86,6 +94,13 @@ The watch history is stored at `~/.local/share/animesama-cli/history.db` and can
 ## Uninstall
 
 <details>
+
+**apt / dnf:**
+
+```sh
+sudo apt remove animesama-cli    # Debian/Ubuntu
+sudo dnf remove animesama-cli    # Fedora
+```
 
 **AUR:**
 
