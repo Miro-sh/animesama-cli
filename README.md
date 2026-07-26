@@ -2,7 +2,7 @@
 
 # animesama-cli
 
-Browse and watch anime from [anime-sama.fr](https://anime-sama.fr) directly in your terminal.
+Browse and watch anime from [anime-sama.si](https://anime-sama.si) directly in your terminal.
 
 <a href="https://aur.archlinux.org/packages/animesama-cli"><img src="https://img.shields.io/aur/version/animesama-cli" alt="AUR version"></a>
 <a href="https://pypi.org/project/animesama"><img src="https://img.shields.io/pypi/v/animesama" alt="PyPI version"></a>
@@ -21,14 +21,14 @@ Browse and watch anime from [anime-sama.fr](https://anime-sama.fr) directly in y
 
 ## Overview
 
-animesama-cli is a terminal application for browsing and watching anime from [anime-sama.fr](https://anime-sama.fr). It provides catalog search, persistent watch history, and the weekly release schedule. Video playback is handled by [mpv](https://mpv.io).
+animesama-cli is a terminal application for browsing and watching anime from [anime-sama.si](https://anime-sama.si). It provides catalog search, persistent watch history, and the weekly release schedule. Video playback is handled by [mpv](https://mpv.io).
 
 ## Features
 
-- Full-text search of the anime-sama.fr catalog
+- Full-text search of the anime-sama catalog
 - Interactive TUI built with [Textual](https://textual.textualize.io/), with a standard CLI fallback
 - Watch history stored in SQLite, with resume support
-- Weekly release schedule from anime-sama.fr
+- Weekly release schedule from anime-sama
 - Upcoming episodes from animecountdown.com
 - French dub (VF) and Japanese audio with French subtitles (VOSTFR)
 - Linux and Windows support; AUR package available for Arch Linux
