@@ -1,0 +1,31 @@
+name: animesama-cli
+arch: amd64
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: utils
+priority: optional
+maintainer: Miro-sh <65116975+Miro-sh@users.noreply.github.com>
+description: Browse and watch anime from anime-sama.fr in your terminal.
+homepage: https://github.com/Miro-sh/animesama-cli
+license: GPL-3.0-only
+contents:
+  - src: pkgroot/usr/share/animesama-cli
+    dst: /usr/share/animesama-cli
+  - src: pkgroot/usr/bin/animesama-cli
+    dst: /usr/bin/animesama-cli
+    file_info:
+      mode: 0755
+overrides:
+  deb:
+    depends:
+      - python3 (>= 3.9)
+      - mpv
+  rpm:
+    depends:
+      - python3 >= 3.9
+      - mpv
+  apk:
+    depends:
+      - python3>=3.9
+      - mpv
