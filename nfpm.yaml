@@ -20,12 +20,15 @@ overrides:
   deb:
     depends:
       - python3 (>= 3.9)
+      - python3-pil
       - mpv
   rpm:
     depends:
       - python3 >= 3.9
+      - python3-pillow
       - mpv
   apk:
     depends:
       - python3>=3.9
+      - py3-pillow
       - mpv
