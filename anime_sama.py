@@ -1253,6 +1253,27 @@ if TEXTUAL_AVAILABLE:
         except Exception:
             return []
 
+    class HalfBlockImage:
+        def __init__(self, image):
+            if image.height % 2:
+                image = image.crop((0, 0, image.width, image.height - 1))
+            self.image = image
+
+        def __rich_console__(self, console, options):
+            from rich.segment import Segment
+            from rich.style import Style
+            px = self.image.load()
+            w, h = self.image.size
+            for y in range(0, h, 2):
+                for x in range(w):
+                    yield Segment("▄", Style(color=f"rgb{px[x, y]}", bgcolor=f"rgb{px[x, y + 1]}"))
+                yield Segment("\n")
+
+        def __rich_measure__(self, console, options):
+            from rich.measure import Measurement
+            w, _ = self.image.size
+            return Measurement(w, w)
+
     def _anime_page_url(url):
         match = re.search(r'((?:https?://[^/]+)?/catalogue/[^/]+)', url)
         if not match:
@@ -1845,7 +1866,6 @@ if TEXTUAL_AVAILABLE:
             try:
                 import io
                 from PIL import Image
-                from rich_pixels import Pixels
             except ImportError:
                 self._cover_fallback()
                 return
@@ -1856,14 +1876,13 @@ if TEXTUAL_AVAILABLE:
             except Exception:
                 self._cover_fallback()
                 return
+            side = self.query_one(".info-side")
             max_w = max(side.content_size.width - 4, 10)
             max_h = max(int(self.size.height * 0.5) * 2, 12)
             img.thumbnail((max_w, max_h))
             w, h = img.size
-            if h % 2:
-                img = img.crop((0, 0, w, h - 1))
             side.query_one("#empty").remove()
-            cover_widget = Static(Pixels.from_image(img), id="info-cover")
+            cover_widget = Static(HalfBlockImage(img), id="info-cover")
             cover_widget.styles.width = w
             cover_widget.styles.height = h // 2
             infos = side.query(".info-section")

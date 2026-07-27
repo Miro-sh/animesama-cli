@@ -2,4 +2,3 @@ textual>=0.44.0
 requests
 beautifulsoup4
 pillow
-rich-pixels
