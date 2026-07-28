@@ -15,7 +15,7 @@ Browse and watch anime from [anime-sama.si](https://anime-sama.si) directly in y
 
 <div align="center">
 
-![animesama-cli demo](./assets/ANIMESAMA-CLI.mp4)
+![animesama-cli demo](./assets/demo.gif)
 
 </div>
 
