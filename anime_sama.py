@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import shutil
 import threading
+import difflib
 
 try:
     from textual.app import App, ComposeResult
@@ -46,6 +47,424 @@ MENU_ITEMS = [
 FALLBACK_DOMAIN = "anime-sama.to"
 
 KITTY_COVER_ID = 1337
+
+# OP/ED timestamps are fetched from the AniSkip API (https://api.aniskip.com),
+# an approach inspired by ani-skip (https://github.com/synacktraa/ani-skip).
+_SKIP_OP_LUA = r"""
+local options = require("mp.options")
+local assdraw = require("mp.assdraw")
+
+local o = {
+    duration = 90,
+    key = "s",
+    show_duration = 150,
+    text = "Skip OP \xc2\xbb",
+    text_ed = "Skip ED \xc2\xbb",
+    auto = true,
+    op_start = 0,
+    op_end = 0,
+    ed_start = 0,
+    ed_end = 0,
+}
+options.read_options(o, "skip_op")
+
+local OP_KEYWORDS = { "op", "opening", "intro", "générique" }
+
+local function has_known_segments()
+    return (o.op_end > o.op_start) or (o.ed_end > o.ed_start)
+end
+
+local function known_segment(pos)
+    if o.op_end > o.op_start and pos >= o.op_start and pos < o.op_end then
+        return "op"
+    end
+    if o.ed_end > o.ed_start and pos >= o.ed_start and pos < o.ed_end then
+        return "ed"
+    end
+    return nil
+end
+
+local function jump_to(target, message)
+    local duration = mp.get_property_number("duration")
+    if duration and target > duration - 0.5 then
+        target = math.max(duration - 0.5, 0)
+    end
+    mp.set_property_number("time-pos", target)
+    mp.osd_message(message .. " \xe2\x8f\xad")
+end
+
+local function is_op_chapter(title)
+    if not title then
+        return false
+    end
+    title = title:lower()
+    for _, kw in ipairs(OP_KEYWORDS) do
+        if title:find(kw, 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
+local function current_chapter_is_op(pos, duration)
+    local chapters = mp.get_property_native("chapter-list")
+    if not chapters or #chapters == 0 then
+        return false
+    end
+    for i, ch in ipairs(chapters) do
+        local ch_end = chapters[i + 1] and chapters[i + 1].time or duration
+        if pos >= ch.time and (not ch_end or pos < ch_end) then
+            return is_op_chapter(ch.title)
+        end
+    end
+    return false
+end
+
+local function skip_op()
+    local pos = mp.get_property_number("time-pos")
+    local duration = mp.get_property_number("duration")
+    if not pos then
+        return
+    end
+    local seg = known_segment(pos)
+    if seg == "op" then
+        jump_to(o.op_end, "Opening skipped")
+        return
+    elseif seg == "ed" then
+        jump_to(o.ed_end, "Ending skipped")
+        return
+    end
+    local chapters = mp.get_property_native("chapter-list")
+    if chapters and #chapters > 0 then
+        for i, ch in ipairs(chapters) do
+            local ch_end = chapters[i + 1] and chapters[i + 1].time or duration
+            if pos >= ch.time and (not ch_end or pos < ch_end) then
+                if is_op_chapter(ch.title) then
+                    if chapters[i + 1] then
+                        mp.set_property_number("time-pos", chapters[i + 1].time)
+                    elseif duration then
+                        mp.set_property_number("time-pos", math.max(duration - 1, 0))
+                    end
+                    mp.osd_message("Opening skipped \xe2\x8f\xad")
+                    return
+                end
+                break
+            end
+        end
+    end
+    jump_to(pos + o.duration, ("Skip +%ds"):format(o.duration))
+end
+
+local skipped = { op = false, ed = false }
+
+local function auto_skip(_, pos)
+    if not o.auto or not pos then
+        return
+    end
+    local seg = known_segment(pos)
+    if seg and not skipped[seg] then
+        skipped[seg] = true
+        if seg == "op" then
+            jump_to(o.op_end, "Opening skipped")
+        else
+            jump_to(o.ed_end, "Ending skipped")
+        end
+    end
+end
+
+local overlay = mp.create_osd_overlay("ass")
+local btn = { x = 0, y = 0, w = 0, h = 0, visible = false, hover = false, label = o.text }
+local click_section_enabled = false
+
+local function set_click_section(on)
+    if on == click_section_enabled then
+        return
+    end
+    click_section_enabled = on
+    if on then
+        mp.commandv("enable-section", "skip_op_click", "allow-hide-cursor+allow-vo-dragging")
+    else
+        mp.commandv("disable-section", "skip_op_click")
+    end
+end
+
+local function render()
+    if not btn.visible then
+        overlay:remove()
+        return
+    end
+    local osd_w = mp.get_property_number("osd-width") or 0
+    local osd_h = mp.get_property_number("osd-height") or 0
+    if osd_w <= 0 or osd_h <= 0 then
+        osd_w = mp.get_property_number("width") or 0
+        osd_h = mp.get_property_number("height") or 0
+    end
+    if osd_w <= 0 or osd_h <= 0 then
+        overlay:remove()
+        return
+    end
+    local fs = math.max(18, osd_h * 0.035)
+    btn.h = fs * 1.9
+    btn.w = fs * 5.4
+    btn.x = osd_w - btn.w - osd_w * 0.04
+    btn.y = osd_h * 0.70
+
+    local bg_color = btn.hover and "&H50E0E0E0&" or "&H50282828&"
+    local border_color = btn.hover and "&H00FFFFFF&" or "&H00AAAAAA&"
+    local text_color = btn.hover and "&H00282828&" or "&H00FFFFFF&"
+
+    local a = assdraw.ass_new()
+    a:pos(0, 0)
+    a:append(("{\\1c%s\\1a&H00&\\bord1.5\\3c%s\\3a&H00&\\p1}"):format(bg_color, border_color))
+    a:draw_start()
+    a:round_rect_cw(btn.x, btn.y, btn.x + btn.w, btn.y + btn.h, fs * 0.5)
+    a:draw_stop()
+    a:append("{\\p0}")
+    a:new_event()
+    a:an(5)
+    a:pos(btn.x + btn.w / 2, btn.y + btn.h / 2 - fs * 0.08)
+    a:append(("{\\fs%f\\bord0\\shad0\\1c%s\\b1}%s"):format(fs, text_color, btn.label))
+    overlay.data = a.text
+    overlay:update()
+end
+
+local function mouse_over_button()
+    local m = mp.get_property_native("mouse-pos")
+    if not m or not m.x then
+        return false
+    end
+    return m.x >= btn.x and m.x <= btn.x + btn.w and m.y >= btn.y and m.y <= btn.y + btn.h
+end
+
+local function update_visibility()
+    local pos = mp.get_property_number("time-pos")
+    local duration = mp.get_property_number("duration")
+    local should = false
+    if pos then
+        if has_known_segments() then
+            local seg = known_segment(pos)
+            should = seg ~= nil
+            btn.label = seg == "ed" and o.text_ed or o.text
+        else
+            should = (o.show_duration <= 0 or pos < o.show_duration)
+                or current_chapter_is_op(pos, duration)
+            btn.label = o.text
+        end
+    end
+    btn.visible = should
+    set_click_section(should)
+    render()
+end
+
+local function on_click()
+    if btn.visible and mouse_over_button() then
+        skip_op()
+        return
+    end
+    set_click_section(false)
+    mp.commandv("keypress", "MBTN_LEFT")
+    mp.add_timeout(0.1, function()
+        if btn.visible then
+            set_click_section(true)
+        end
+    end)
+end
+
+mp.commandv("define-section", "skip_op_click",
+    "MBTN_LEFT script-binding " .. mp.get_script_name() .. "/click", "default")
+mp.add_key_binding(nil, "click", on_click)
+
+mp.observe_property("mouse-pos", "native", function(_, m)
+    if not btn.visible or not m or not m.x then
+        return
+    end
+    local hover = m.x >= btn.x and m.x <= btn.x + btn.w and m.y >= btn.y and m.y <= btn.y + btn.h
+    if hover ~= btn.hover then
+        btn.hover = hover
+        render()
+    end
+end)
+
+mp.observe_property("time-pos", "number", update_visibility)
+mp.observe_property("time-pos", "number", auto_skip)
+mp.observe_property("chapter-list", "native", update_visibility)
+mp.observe_property("osd-dimensions", "native", function()
+    if btn.visible then
+        render()
+    end
+end)
+mp.register_event("file-loaded", function()
+    skipped.op = false
+    skipped.ed = false
+    update_visibility()
+end)
+
+mp.add_key_binding(o.key, "skip_op", skip_op)
+"""
+
+
+def _cache_dir():
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or os.path.join(pathlib.Path.home(), "AppData", "Local")
+        return os.path.join(base, "animesama", "cache")
+    if sys.platform == "darwin":
+        return os.path.join(pathlib.Path.home(), "Library", "Caches", "animesama")
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.join(pathlib.Path.home(), ".cache")
+    return os.path.join(base, "animesama")
+
+
+def _get_skip_op_script_path():
+    try:
+        cache = _cache_dir()
+        os.makedirs(cache, exist_ok=True)
+        path = os.path.join(cache, "skip_op.lua")
+        content = _SKIP_OP_LUA.strip() + "\n"
+        if not os.path.exists(path):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(content)
+        else:
+            with open(path, "r", encoding="utf-8") as f:
+                if f.read() != content:
+                    with open(path, "w", encoding="utf-8") as fw:
+                        fw.write(content)
+        return path
+    except OSError:
+        return None
+
+
+def _load_json_cache(name):
+    try:
+        with open(os.path.join(_cache_dir(), name), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_json_cache(name, data):
+    try:
+        os.makedirs(_cache_dir(), exist_ok=True)
+        with open(os.path.join(_cache_dir(), name), "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except OSError:
+        pass
+
+
+def _skip_queries(anime_name, saison=None):
+    name = re.sub(r'\s+', ' ', anime_name or '').strip()
+    name = re.sub(r'\s*[-:]\s*(vostfr|vf)$', '', name, flags=re.IGNORECASE)
+    queries = []
+    match = re.search(r'saison\s*(\d+)', saison or '', re.IGNORECASE)
+    if match and int(match.group(1)) > 1:
+        n = int(match.group(1))
+        ordinal = {1: "1st", 2: "2nd", 3: "3rd"}.get(n, f"{n}th")
+        queries.append(f"{name} Season {n}")
+        queries.append(f"{name} {ordinal} Season")
+    queries.append(name)
+    return queries
+
+
+def _title_matches(query, title):
+    def norm(text):
+        return re.sub(r'[^a-z0-9]+', ' ', (text or '').lower()).strip()
+    q, t = norm(query), norm(title)
+    if not q or not t:
+        return False
+    if q in t or t in q:
+        return True
+    return difflib.SequenceMatcher(None, q, t).ratio() >= 0.7
+
+
+def _resolve_mal_ids(query):
+    try:
+        resp = requests.get(
+            "https://myanimelist.net/search/prefix.json",
+            params={"type": "anime", "keyword": query},
+            headers=HEADERS_BASE, timeout=5
+        )
+        data = resp.json()
+        for category in data.get("categories", []):
+            if category.get("type") == "anime":
+                return [
+                    item["id"] for item in category.get("items", [])
+                    if _title_matches(query, item.get("name"))
+                    or item.get("es_score", 0) >= 1.0
+                ][:5]
+    except Exception:
+        pass
+    return []
+
+
+def _fetch_aniskip_times(mal_id, episode):
+    try:
+        resp = requests.get(
+            f"https://api.aniskip.com/v1/skip-times/{mal_id}/{episode}",
+            params={"types": ["op", "ed"]}, timeout=5
+        )
+        data = resp.json()
+        if not data.get("found"):
+            return None
+        times = {}
+        for result in data.get("results", []):
+            interval = result.get("interval", {})
+            start = interval.get("start_time")
+            end = interval.get("end_time")
+            if start is not None and end is not None:
+                times[f"{result.get('skip_type')}_start"] = float(start)
+                times[f"{result.get('skip_type')}_end"] = float(end)
+        return times or None
+    except Exception:
+        return None
+
+
+def _get_skip_times(anime_name, episode, saison=None):
+    if not anime_name or episode is None:
+        return None
+    ep_match = re.search(r'(\d+)', str(episode))
+    if not ep_match:
+        return None
+    ep = int(ep_match.group(1))
+    cache_key = f"{anime_name}|{saison or ''}|{ep}".lower()
+    cache = _load_json_cache("skip_times.json")
+    if cache_key in cache:
+        return cache[cache_key]
+    for query in _skip_queries(anime_name, saison):
+        for mal_id in _resolve_mal_ids(query):
+            times = _fetch_aniskip_times(mal_id, ep)
+            if times:
+                cache[cache_key] = times
+                _save_json_cache("skip_times.json", cache)
+                return times
+    cache[cache_key] = None
+    _save_json_cache("skip_times.json", cache)
+    return None
+
+
+def _format_skip_times(times):
+    def fmt(seconds):
+        m, s = divmod(int(seconds), 60)
+        return f"{m:02d}:{s:02d}"
+    parts = []
+    if "op_start" in times:
+        parts.append(f"OP {fmt(times['op_start'])} → {fmt(times['op_end'])}")
+    if "ed_start" in times:
+        parts.append(f"ED {fmt(times['ed_start'])} → {fmt(times['ed_end'])}")
+    return " · ".join(parts)
+
+
+def _mpv_command(video_url, anime_name=None, episode=None, saison=None, status_cb=None):
+    cmd = ['mpv', video_url, '--fullscreen']
+    skip_script = _get_skip_op_script_path()
+    if skip_script:
+        cmd.append(f'--scripts-append={skip_script}')
+        if anime_name and status_cb:
+            status_cb("Recherche des timestamps OP/ED (AniSkip)…")
+        times = _get_skip_times(anime_name, episode, saison)
+        if times:
+            opts = ",".join(f"skip_op-{key}={value:.3f}" for key, value in times.items())
+            cmd.append(f'--script-opts={opts}')
+            if status_cb:
+                status_cb(f"Timestamps trouvés : {_format_skip_times(times)} — skip automatique activé")
+    return cmd
 
 def _kitty_dbg(msg):
     if not os.environ.get("ANIMESAMA_KITTY_DEBUG"):
@@ -545,7 +964,7 @@ def display_history(full_check=False):
                 video_url = 'https:' + video_url
             print(f"Lecture de la vidéo avec mpv...")
             try:
-                subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                subprocess.run(_mpv_command(video_url, anime_name, next_ep, saison, status_cb=print), check=True)
                 add_to_history(
                     anime_name=anime_name,
                     episode=f"Episode {next_ep}",
@@ -702,7 +1121,7 @@ def afficher_episodes_saison(url, anime_name, version):
         video_url = 'https:' + video_url
     print(f"Lecture de la vidéo avec mpv...")
     try:
-        subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+        subprocess.run(_mpv_command(video_url, anime_name, selected_ep, version, status_cb=print), check=True)
         saison = version
         url_lower = url.lower()
         if "saison" not in version.lower():
@@ -861,7 +1280,7 @@ def cli_main(args):
     
     print(f"Lecture de la vidéo avec mpv...")
     try:
-        subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+        subprocess.run(_mpv_command(video_url, animes[selected_anime], selected_ep, seasons[selected_season]['name'], status_cb=print), check=True)
         saison = seasons[selected_season]['name']
         if "saison" not in saison.lower():
             match = re.search(r'/saison(\d+)', season_url, re.IGNORECASE)
@@ -1459,10 +1878,11 @@ if TEXTUAL_AVAILABLE:
         if video_url.startswith('//'):
             video_url = 'https:' + video_url
         app.set_status(f"Lecture de l'épisode {ep} avec mpv…")
+        mpv_cmd = _mpv_command(video_url, anime_name, ep, saison, status_cb=app.set_status)
         try:
             with app.suspend():
                 print(f"Lecture de l'épisode {ep} avec mpv… (chargement possible, touche q pour quitter mpv)")
-                subprocess.run(['mpv', video_url, '--fullscreen'], check=True)
+                subprocess.run(mpv_cmd, check=True)
         except FileNotFoundError:
             app.set_status("[#e06c75]Erreur : mpv n'est pas installé.[/]")
             return False

@@ -32,6 +32,7 @@ animesama-cli is a terminal application for browsing and watching anime from [an
 - Upcoming episodes from animecountdown.com
 - French dub (VF) and Japanese audio with French subtitles (VOSTFR)
 - Linux and Windows support; AUR package available for Arch Linux
+- Automatic OP/ED skipping in mpv: exact opening/ending timestamps come from the [AniSkip](https://api.aniskip.com) community database (resolved via MyAnimeList, with season disambiguation). The opening and ending are skipped automatically once per episode — seek back to rewatch them. A clickable `Skip OP »` button also appears on the right side of the screen during the opening/ending, and `s` skips manually. If AniSkip doesn't know the episode, it falls back to chapter detection or a +90s jump. Customize in your mpv config: `--script-opts=skip_op-auto=false,skip_op-duration=120,skip_op-key=n`
 
 ## Installation
 
@@ -191,6 +192,7 @@ Built-in Python modules used: `sqlite3`, `re`, `json`, `sys`, `os`, `time`, `dat
 ## Related projects
 
 - [ani-cli](https://github.com/pystardust/ani-cli): Japanese audio, English subtitles (4anime, gogoanime, allmanga). animesama-cli was inspired by this project.
+- [ani-skip](https://github.com/synacktraa/ani-skip): automatic OP/ED skipping for mpv. Our skip feature uses the same [AniSkip](https://api.aniskip.com) timestamp database — credits to them and the AniSkip community.
 - [GoAnime](https://github.com/alvarorichard/GoAnime): Japanese audio, Portuguese subtitles
 - [doccli](https://github.com/TowarzyszFatCat/doccli): Japanese audio, Polish subtitles (docchi.pl)
 
