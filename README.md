@@ -27,7 +27,7 @@ animesama-cli is a terminal application for browsing and watching anime from [an
 
 - Full-text search of the anime-sama catalog
 - Interactive TUI built with [Textual](https://textual.textualize.io/), with a standard CLI fallback
-- Watch history stored in SQLite, with resume support
+- Watch history stored in SQLite, with resume support: if you stop an episode before the end, the position is saved and replaying it continues exactly where you left off instead of jumping to the next episode (finished episodes advance as usual)
 - Weekly release schedule from anime-sama
 - Upcoming episodes from animecountdown.com
 - French dub (VF) and Japanese audio with French subtitles (VOSTFR)
@@ -106,14 +106,14 @@ The script installs the application via [pipx](https://pipx.pypa.io) and downloa
 | `animesama-cli --cli` | Force CLI mode |
 | `animesama-cli naruto` | Search directly |
 | `animesama-cli --vf naruto` | Search French dub only |
-| `animesama-cli -c` | Show watch history |
+| `animesama-cli -c` | Show watch history (unfinished episodes show their saved position and resume from it) |
 | `animesama-cli -cf` | History with last-episode check |
 | `animesama-cli -p` | Weekly schedule |
 | `animesama-cli -up` | Upcoming episodes |
 | `animesama-cli --debug naruto` | Search with debug output |
 | `animesama-cli -h` | Show all options |
 
-The watch history is stored at `~/.local/share/animesama-cli/history.db` and can be opened with any SQLite browser.
+The watch history is stored at `~/.local/share/animesama-cli/history.db` and can be opened with any SQLite browser. It also stores the playback position of unfinished episodes, which is how resume works.
 
 ## Uninstall
 
