@@ -18,6 +18,8 @@ import asyncio
 import shutil
 import threading
 import difflib
+import socket
+import tempfile
 
 try:
     from textual.app import App, ComposeResult
@@ -451,8 +453,10 @@ def _format_skip_times(times):
     return " · ".join(parts)
 
 
-def _mpv_command(video_url, anime_name=None, episode=None, saison=None, status_cb=None):
+def _mpv_command(video_url, anime_name=None, episode=None, saison=None, status_cb=None, start=None):
     cmd = ['mpv', video_url, '--fullscreen']
+    if start:
+        cmd.append(f'--start={start:.2f}')
     skip_script = _get_skip_op_script_path()
     if skip_script:
         cmd.append(f'--scripts-append={skip_script}')
@@ -465,6 +469,83 @@ def _mpv_command(video_url, anime_name=None, episode=None, saison=None, status_c
             if status_cb:
                 status_cb(f"Timestamps trouvés : {_format_skip_times(times)} — skip automatique activé")
     return cmd
+
+def _ipc_send(conn, msg):
+    data = (json.dumps(msg) + "\n").encode()
+    if hasattr(conn, "sendall"):
+        conn.sendall(data)
+    else:
+        conn.write(data)
+
+def _mpv_ipc_tracker(ipc_target, is_pipe, state):
+    conn = None
+    for _ in range(100):
+        try:
+            if is_pipe:
+                conn = open(ipc_target, "r+b", buffering=0)
+            else:
+                if not os.path.exists(ipc_target):
+                    time.sleep(0.1)
+                    continue
+                conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+                conn.connect(ipc_target)
+            break
+        except OSError:
+            time.sleep(0.1)
+    if conn is None:
+        return
+    try:
+        _ipc_send(conn, {"command": ["observe_property", 1, "time-pos"]})
+        _ipc_send(conn, {"command": ["observe_property", 2, "duration"]})
+        buf = b""
+        while True:
+            chunk = conn.recv(4096) if hasattr(conn, "recv") else conn.read(4096)
+            if not chunk:
+                break
+            buf += chunk
+            while b"\n" in buf:
+                line, buf = buf.split(b"\n", 1)
+                try:
+                    msg = json.loads(line)
+                except ValueError:
+                    continue
+                if msg.get("event") == "property-change" and isinstance(msg.get("data"), (int, float)):
+                    if msg.get("name") == "time-pos":
+                        state["pos"] = msg["data"]
+                    elif msg.get("name") == "duration":
+                        state["dur"] = msg["data"]
+    except OSError:
+        pass
+    finally:
+        try:
+            conn.close()
+        except OSError:
+            pass
+
+def _compute_resume_position(pos, dur):
+    if pos is None or pos < 30:
+        return None
+    if dur and (dur - pos) < max(60.0, dur * 0.05):
+        return None
+    return pos
+
+def _run_mpv(cmd):
+    is_pipe = os.name == "nt"
+    ipc_name = f"animesama-mpv-{os.getpid()}-{int(time.time() * 1000)}"
+    ipc_target = "\\\\.\\pipe\\" + ipc_name if is_pipe else os.path.join(tempfile.gettempdir(), ipc_name + ".sock")
+    state = {"pos": None, "dur": None}
+    tracker = threading.Thread(target=_mpv_ipc_tracker, args=(ipc_target, is_pipe, state), daemon=True)
+    tracker.start()
+    try:
+        subprocess.run(cmd + [f'--input-ipc-server={ipc_target}'], check=True)
+    finally:
+        tracker.join(timeout=2)
+        if not is_pipe:
+            try:
+                os.unlink(ipc_target)
+            except OSError:
+                pass
+    return _compute_resume_position(state["pos"], state["dur"])
 
 def _kitty_dbg(msg):
     if not os.environ.get("ANIMESAMA_KITTY_DEBUG"):
@@ -566,26 +647,31 @@ def init_db():
         episode TEXT NOT NULL,
         saison TEXT NOT NULL,
         url TEXT NOT NULL,
+        position REAL,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+    cursor.execute("PRAGMA table_info(history)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "position" not in columns:
+        cursor.execute("ALTER TABLE history ADD COLUMN position REAL")
     conn.commit()
     conn.close()
 
-def add_to_history(anime_name, episode, saison, url, debug=False):
+def add_to_history(anime_name, episode, saison, url, debug=False, position=None):
     try:
         init_db()
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id FROM history WHERE anime_name = ? AND saison = ?", 
+            "SELECT id FROM history WHERE anime_name = ? AND saison = ?",
             (anime_name, saison)
         )
         existing_entry = cursor.fetchone()
         if existing_entry:
             cursor.execute(
-                "UPDATE history SET episode = ?, timestamp = CURRENT_TIMESTAMP WHERE id = ?",
-                (episode, existing_entry[0])
+                "UPDATE history SET episode = ?, position = ?, timestamp = CURRENT_TIMESTAMP WHERE id = ?",
+                (episode, position, existing_entry[0])
             )
             if debug:
                 print("[DEBUG] Historique mis à jour avec succès")
@@ -593,8 +679,8 @@ def add_to_history(anime_name, episode, saison, url, debug=False):
                 print("✓ Historique mis à jour avec succès")
         else:
             cursor.execute(
-                "INSERT INTO history (anime_name, episode, saison, url) VALUES (?, ?, ?, ?)",
-                (anime_name, episode, saison, url)
+                "INSERT INTO history (anime_name, episode, saison, url, position) VALUES (?, ?, ?, ?, ?)",
+                (anime_name, episode, saison, url, position)
             )
             if debug:
                 print("[DEBUG] Ajouté à l'historique avec succès")
@@ -608,13 +694,38 @@ def add_to_history(anime_name, episode, saison, url, debug=False):
         else:
             print(f"✗ Erreur lors de l'ajout à l'historique")
 
+def get_resume_position(anime_name, saison, episode):
+    db_path = get_db_path()
+    if not os.path.exists(db_path):
+        return None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT position FROM history WHERE anime_name = ? AND saison = ? AND episode = ?",
+            (anime_name, saison, episode)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if row and row[0] is not None:
+            return float(row[0])
+    except Exception:
+        pass
+    return None
+
+def _format_position(seconds):
+    m, s = divmod(int(seconds), 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m:02d}:{s:02d}"
+
 def get_history_entries():
     db_path = get_db_path()
     if not os.path.exists(db_path):
         return []
+    init_db()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT id, anime_name, episode, saison, url FROM history ORDER BY timestamp DESC")
+    cursor.execute("SELECT id, anime_name, episode, saison, url, position FROM history ORDER BY timestamp DESC")
     entries = cursor.fetchall()
     conn.close()
     return entries
@@ -881,7 +992,7 @@ def display_history(full_check=False):
     init_db()
     conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
-    cursor.execute("SELECT id, anime_name, episode, saison, url FROM history ORDER BY timestamp DESC")
+    cursor.execute("SELECT id, anime_name, episode, saison, url, position FROM history ORDER BY timestamp DESC")
     history_entries = cursor.fetchall()
     conn.close()
     if not history_entries:
@@ -889,7 +1000,7 @@ def display_history(full_check=False):
         return
     print("\nHistorique :")
     for i, entry in enumerate(history_entries, 1):
-        entry_id, anime_name, episode, saison, url = entry
+        entry_id, anime_name, episode, saison, url, position = entry
         is_last = False
         match = re.search(r'(\d+)$', episode)
         if match and full_check:
@@ -902,6 +1013,8 @@ def display_history(full_check=False):
                     if ep_keys_int and current_ep == max(ep_keys_int):
                         is_last = True
         line = f"{i}. {anime_name} - {episode} - {saison}"
+        if position is not None:
+            line += f" - reprendre à {_format_position(position)}"
         if is_last:
             line += " - Dernier épisode"
         print(line)
@@ -926,7 +1039,7 @@ def display_history(full_check=False):
         idx = int(choix) - 1
         if 0 <= idx < len(history_entries):
             entry = history_entries[idx]
-            anime_name, episode, saison, url = entry[1:5]
+            anime_name, episode, saison, url, position = entry[1:6]
             print(f"Lecture de {anime_name} - {episode} - {saison}")
             match = re.search(r'(\d+)$', episode)
             if match:
@@ -946,16 +1059,25 @@ def display_history(full_check=False):
             ep_keys = list(episodes.keys())
             ep_keys_int = [int(e) for e in ep_keys if e.isdigit()]
             ep_keys_int.sort()
-            next_ep = None
-            for ep in ep_keys_int:
-                if ep > current_ep:
-                    next_ep = ep
-                    break
-            if next_ep is None:
+            if position is not None:
+                target_ep = current_ep
+            else:
+                target_ep = None
+                for ep in ep_keys_int:
+                    if ep > current_ep:
+                        target_ep = ep
+                        break
+            if target_ep is None:
                 print(f"Vous avez déjà vu le dernier épisode : {anime_name} - Episode {current_ep} - {saison} - Dernier épisode (déjà vu)")
                 return
-            video_ids = episodes[str(next_ep)]
-            print(f"Récupération de l'épisode {next_ep}...")
+            if str(target_ep) not in episodes:
+                print(f"L'épisode {target_ep} n'est pas disponible.")
+                return
+            video_ids = episodes[str(target_ep)]
+            if position is not None:
+                print(f"Reprise de l'épisode {target_ep} à {_format_position(position)}...")
+            else:
+                print(f"Récupération de l'épisode {target_ep}...")
             video_url = downloader.resolve_video_url(video_ids)
             if not video_url:
                 print("Impossible de récupérer l'URL de la vidéo.")
@@ -964,13 +1086,14 @@ def display_history(full_check=False):
                 video_url = 'https:' + video_url
             print(f"Lecture de la vidéo avec mpv...")
             try:
-                subprocess.run(_mpv_command(video_url, anime_name, next_ep, saison, status_cb=print), check=True)
+                new_position = _run_mpv(_mpv_command(video_url, anime_name, target_ep, saison, status_cb=print, start=position))
                 add_to_history(
                     anime_name=anime_name,
-                    episode=f"Episode {next_ep}",
+                    episode=f"Episode {target_ep}",
                     saison=saison,
                     url=url,
-                    debug=False
+                    debug=False,
+                    position=new_position
                 )
             except FileNotFoundError:
                 print("Erreur : mpv n'est pas installé. Installe-le d'abord (sudo apt install mpv / yay -S mpv / mpv.io sur Windows).")
@@ -1120,36 +1243,40 @@ def afficher_episodes_saison(url, anime_name, version):
     if video_url.startswith('//'):
         video_url = 'https:' + video_url
     print(f"Lecture de la vidéo avec mpv...")
-    try:
-        subprocess.run(_mpv_command(video_url, anime_name, selected_ep, version, status_cb=print), check=True)
-        saison = version
-        url_lower = url.lower()
-        if "saison" not in version.lower():
-            match = re.search(r'/saison(\d+)', url_lower)
-            if match:
-                saison = f"Saison {match.group(1)}"
-            elif "/oav" in url_lower or "/ova" in url_lower:
-                saison = "OAV"
-            elif "/film" in url_lower:
-                saison = "Film"
-            elif "/special" in url_lower:
-                saison = "Special"
-            else:
-                saison = version
-        if "vostfr" in url.lower():
-            version_str = "VOSTFR"
-        elif re.search(r'/vf/?', url.lower()):
-            version_str = "VF"
+    saison = version
+    url_lower = url.lower()
+    if "saison" not in version.lower():
+        match = re.search(r'/saison(\d+)', url_lower)
+        if match:
+            saison = f"Saison {match.group(1)}"
+        elif "/oav" in url_lower or "/ova" in url_lower:
+            saison = "OAV"
+        elif "/film" in url_lower:
+            saison = "Film"
+        elif "/special" in url_lower:
+            saison = "Special"
         else:
-            version_str = ""
-        if version_str and version_str.lower() not in saison.lower():
-            saison = f"{saison} - {version_str}"
+            saison = version
+    if "vostfr" in url.lower():
+        version_str = "VOSTFR"
+    elif re.search(r'/vf/?', url.lower()):
+        version_str = "VF"
+    else:
+        version_str = ""
+    if version_str and version_str.lower() not in saison.lower():
+        saison = f"{saison} - {version_str}"
+    start = get_resume_position(anime_name, saison, f"Episode {selected_ep}")
+    if start:
+        print(f"Reprise à {_format_position(start)}")
+    try:
+        new_position = _run_mpv(_mpv_command(video_url, anime_name, selected_ep, version, status_cb=print, start=start))
         add_to_history(
             anime_name=anime_name,
             episode=f"Episode {selected_ep}",
             saison=saison,
             url=url,
-            debug=False
+            debug=False,
+            position=new_position
         )
     except FileNotFoundError:
         print("Erreur : mpv n'est pas installé. Installe-le d'abord (sudo apt install mpv / yay -S mpv / mpv.io sur Windows).")
@@ -1279,32 +1406,36 @@ def cli_main(args):
         video_url = 'https:' + video_url
     
     print(f"Lecture de la vidéo avec mpv...")
-    try:
-        subprocess.run(_mpv_command(video_url, animes[selected_anime], selected_ep, seasons[selected_season]['name'], status_cb=print), check=True)
-        saison = seasons[selected_season]['name']
-        if "saison" not in saison.lower():
-            match = re.search(r'/saison(\d+)', season_url, re.IGNORECASE)
-            if match:
-                saison = f"Saison {match.group(1)}"
-            else:
-                saison = seasons[selected_season]['name']
-        
-        if "vostfr" in season_url.lower():
-            version_str = "VOSTFR"
-        elif re.search(r'/vf/?', season_url.lower()):
-            version_str = "VF"
+    saison = seasons[selected_season]['name']
+    if "saison" not in saison.lower():
+        match = re.search(r'/saison(\d+)', season_url, re.IGNORECASE)
+        if match:
+            saison = f"Saison {match.group(1)}"
         else:
-            version_str = ""
-        
-        if version_str and version_str.lower() not in saison.lower():
-            saison = f"{saison} - {version_str}"
-        
+            saison = seasons[selected_season]['name']
+
+    if "vostfr" in season_url.lower():
+        version_str = "VOSTFR"
+    elif re.search(r'/vf/?', season_url.lower()):
+        version_str = "VF"
+    else:
+        version_str = ""
+
+    if version_str and version_str.lower() not in saison.lower():
+        saison = f"{saison} - {version_str}"
+
+    start = get_resume_position(animes[selected_anime], saison, f"Episode {selected_ep}")
+    if start:
+        print(f"Reprise à {_format_position(start)}")
+    try:
+        new_position = _run_mpv(_mpv_command(video_url, animes[selected_anime], selected_ep, seasons[selected_season]['name'], status_cb=print, start=start))
         add_to_history(
             anime_name=animes[selected_anime],
             episode=f"Episode {selected_ep}",
             saison=saison,
             url=season_url,
-            debug=args.debug
+            debug=args.debug,
+            position=new_position
         )
     except FileNotFoundError:
         print("Erreur : mpv n'est pas installé. Installe-le d'abord (sudo apt install mpv / yay -S mpv / mpv.io sur Windows).")
@@ -1878,29 +2009,36 @@ if TEXTUAL_AVAILABLE:
         if video_url.startswith('//'):
             video_url = 'https:' + video_url
         app.set_status(f"Lecture de l'épisode {ep} avec mpv…")
-        mpv_cmd = _mpv_command(video_url, anime_name, ep, saison, status_cb=app.set_status)
+        saison_str = saison
+        version_str = _version_for_url(url)
+        if version_str and version_str.lower() not in saison_str.lower():
+            saison_str = f"{saison_str} - {version_str}"
+        start = get_resume_position(anime_name, saison_str, f"Episode {ep}")
+        mpv_cmd = _mpv_command(video_url, anime_name, ep, saison, status_cb=app.set_status, start=start)
         try:
             with app.suspend():
+                if start:
+                    print(f"Reprise de l'épisode {ep} à {_format_position(start)}")
                 print(f"Lecture de l'épisode {ep} avec mpv… (chargement possible, touche q pour quitter mpv)")
-                subprocess.run(mpv_cmd, check=True)
+                new_position = _run_mpv(mpv_cmd)
         except FileNotFoundError:
             app.set_status("[#e06c75]Erreur : mpv n'est pas installé.[/]")
             return False
         except Exception as e:
             app.set_status(f"[#e06c75]Erreur lors de la lecture : {e}[/]")
             return False
-        saison_str = saison
-        version_str = _version_for_url(url)
-        if version_str and version_str.lower() not in saison_str.lower():
-            saison_str = f"{saison_str} - {version_str}"
         add_to_history(
             anime_name=anime_name,
             episode=f"Episode {ep}",
             saison=saison_str,
             url=url,
-            debug=False
+            debug=False,
+            position=new_position
         )
-        app.set_status(f"[#86d6a2]Épisode {ep} terminé.[/]")
+        if new_position is not None:
+            app.set_status(f"[#86d6a2]Épisode {ep} en pause — reprise à {_format_position(new_position)} la prochaine fois.[/]")
+        else:
+            app.set_status(f"[#86d6a2]Épisode {ep} terminé.[/]")
         return True
 
     def _handle_column_select(pane, zone, event):
@@ -2007,7 +2145,10 @@ if TEXTUAL_AVAILABLE:
             items = []
             for entry in self.entries:
                 anime_name, episode, saison = entry[1:4]
+                position = entry[5] if len(entry) > 5 else None
                 label = f" {anime_name}  [#6b6577]{episode}[/]  [italic #6ea8fe]{saison}[/]"
+                if position is not None:
+                    label += f"  [#86d6a2]▶ {_format_position(position)}[/]"
                 items.append(ListItem(Label(label, markup=True)))
             self.list_view = ListView(*items, id="history-list")
             yield self.list_view
@@ -2030,6 +2171,7 @@ if TEXTUAL_AVAILABLE:
                 return
             entry = self.entries[idx]
             anime_name, episode, saison, url = entry[1:5]
+            position = entry[5] if len(entry) > 5 else None
             match = re.search(r'(\d+)$', episode)
             if not match:
                 self.app.set_status("[#e06c75]Impossible de déterminer l'épisode courant.[/]")
@@ -2044,22 +2186,34 @@ if TEXTUAL_AVAILABLE:
                 self.app.set_status("[#e06c75]Aucun épisode trouvé.[/]")
                 return
             ep_keys_int = sorted(int(e) for e in episodes.keys() if e.isdigit())
-            next_ep = None
-            for ep in ep_keys_int:
-                if ep > current_ep:
-                    next_ep = ep
-                    break
-            if next_ep is None:
+            if position is not None:
+                target_ep = current_ep
+            else:
+                target_ep = None
+                for ep in ep_keys_int:
+                    if ep > current_ep:
+                        target_ep = ep
+                        break
+            if target_ep is None:
                 self.app.set_status("[#86d6a2]Déjà au dernier épisode.[/]")
                 return
-            video_ids = episodes[str(next_ep)]
-            ok = _play_episode(self, anime_name, next_ep, saison, url, video_ids)
+            if str(target_ep) not in episodes:
+                self.app.set_status(f"[#e06c75]L'épisode {target_ep} n'est pas disponible.[/]")
+                return
+            video_ids = episodes[str(target_ep)]
+            ok = _play_episode(self, anime_name, target_ep, saison, url, video_ids)
             if ok:
-                self._refresh_entry(idx, next_ep)
+                entry = self.entries[idx]
+                new_pos = get_resume_position(anime_name, saison, f"Episode {target_ep}")
+                self.entries[idx] = (entry[0], anime_name, f"Episode {target_ep}", saison, url, new_pos)
+                self._refresh_entry(idx, target_ep)
 
         def _refresh_entry(self, idx, ep):
             anime_name, episode, saison, url = self.entries[idx][1:5]
             label = f" {anime_name}  [#6b6577]Episode {ep}[/]  [italic #6ea8fe]{saison}[/]"
+            position = get_resume_position(anime_name, saison, f"Episode {ep}")
+            if position is not None:
+                label += f"  [#86d6a2]▶ {_format_position(position)}[/]"
             item = self.list_view.children[idx]
             item.query_one(Label).update(label)
 
