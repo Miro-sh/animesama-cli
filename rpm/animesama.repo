@@ -1,0 +1,7 @@
+[animesama]
+name=animesama-cli
+baseurl=https://miro-sh.github.io/animesama-cli/rpm
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://miro-sh.github.io/animesama-cli/animesama.gpg

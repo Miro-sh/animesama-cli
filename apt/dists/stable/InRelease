@@ -1,0 +1,38 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Origin: animesama-cli
+Label: animesama-cli
+Codename: stable
+Date: Tue, 04 Aug 2026 13:34:00 UTC
+Architectures: amd64
+Components: main
+Description: animesama-cli apt repository
+MD5Sum:
+ bb913062f8f2b00e38040bca29662608 590 main/binary-amd64/Packages
+ 68601b0e5a2421cf34b4dcac97815f20 418 main/binary-amd64/Packages.gz
+ d4d835ce9a295763be00cff10942196d 121 main/binary-amd64/Release
+SHA1:
+ 1eee601ebe53725c8ce168721181e5290728a167 590 main/binary-amd64/Packages
+ 8befd01c588cb995db30117c1b8f0ad0964484f6 418 main/binary-amd64/Packages.gz
+ 658484b42149c956417d1db63c70d2f47dba6e41 121 main/binary-amd64/Release
+SHA256:
+ 14e7555d147675987df80c38488b25b99d5172bf20353592533c2a4a5947b7d2 590 main/binary-amd64/Packages
+ dca8ca300fe7c1ba7268e794c12d5769dd2359b4c5f88650e5bc47537ed5effe 418 main/binary-amd64/Packages.gz
+ 58cf90d5e53ff53c0f03280026be3ddc653ddf9578a0fbc07d90a919238dee38 121 main/binary-amd64/Release
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEEFx1m+D7MXmeeqfxYA1stPwiX5JkFAmpx6kgACgkQA1stPwiX
+5Jl0Gw//TjEqlWrCqlt8dREmHFkuxUq2tuNhkJEFc3As52PBn6t0S2MPUbfdHK3c
+wtxjiaaeJBa2UkNl7CM9TzXjlbNcgUBkKRquuwxXDMYLNU/MbObUYIOURf6R57wA
+mBjp2xbCQzp0JPqVsKt8d50NYbfa+ckWwmsKoah9fTyQuW3FloWQwusKmCnY/kfW
+Jlh6YO1MlwM3zNAqPtNGPFOODBa7bRgapk47B6e1FhaZA57+z1j7I0Sn5R2fU6/p
+ub5tOa+hG5iJ8OlXr3QGw1M5HiomAFzQFokxy8YbOfk8/bQ2DOauYWqSzXYnHgxd
+wDXbzNga0iuB+M9yfUPAOiEffWHUlduQCkqfQ8A+5LFOERdAydSunvn0Wk9RHicF
+bRPGmb/60xRuNbhW36oqn3e9mLL8y22hDxI46L+BS02WL8vSXzyAahtV/aO0iNVA
+0DoEZryi++8qIyfeHdC2OjTfJJclzUxcFVTS94IZX7+VFZV94ORbX6+7uNrsZSg1
+29gZnydg0NX9BLB4GuaCl4uioBdulOsjKnfHVtvviK/9TxlFVoPjDQ7NcXF4RTfL
+Lrq7GMl7kvrHC2bv24BXxpGiUveSim4wr//O6SoE7E1V5mE1VPXyZD97dI+bi29M
+osDqwiV06R7LDC/KvkJljt8ZVN4WfATjTM2f5/2IWqAsazcDYNE=
+=Lb8k
+-----END PGP SIGNATURE-----

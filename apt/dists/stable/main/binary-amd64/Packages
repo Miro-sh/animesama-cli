@@ -1,0 +1,16 @@
+Package: animesama-cli
+Version: 1.0.23
+Architecture: amd64
+Maintainer: Miro-sh <65116975+Miro-sh@users.noreply.github.com>
+Installed-Size: 21807
+Depends: python3 (>= 3.9), python3-pil, mpv
+Homepage: https://github.com/Miro-sh/animesama-cli
+Priority: optional
+Section: utils
+Filename: pool/main/a/animesama-cli/animesama-cli_1.0.23_amd64.deb
+Size: 7166140
+SHA256: 596af25908f50a91ffc8ec450fef49371c5da476566cf16a657ca88a93f55d4e
+SHA1: 57eda2254579249b41f37f72890ffa1e2501b7ce
+MD5sum: 99de0b94ce6ad527c0099127abec78c7
+Description: Browse and watch anime from anime-sama.fr in your terminal.
+

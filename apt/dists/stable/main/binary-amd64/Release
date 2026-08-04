@@ -1,0 +1,5 @@
+Component: main
+Origin: animesama-cli
+Label: animesama-cli
+Architecture: amd64
+Description: animesama-cli apt repository

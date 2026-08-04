@@ -1,0 +1,19 @@
+Origin: animesama-cli
+Label: animesama-cli
+Codename: stable
+Date: Tue, 04 Aug 2026 13:34:00 UTC
+Architectures: amd64
+Components: main
+Description: animesama-cli apt repository
+MD5Sum:
+ bb913062f8f2b00e38040bca29662608 590 main/binary-amd64/Packages
+ 68601b0e5a2421cf34b4dcac97815f20 418 main/binary-amd64/Packages.gz
+ d4d835ce9a295763be00cff10942196d 121 main/binary-amd64/Release
+SHA1:
+ 1eee601ebe53725c8ce168721181e5290728a167 590 main/binary-amd64/Packages
+ 8befd01c588cb995db30117c1b8f0ad0964484f6 418 main/binary-amd64/Packages.gz
+ 658484b42149c956417d1db63c70d2f47dba6e41 121 main/binary-amd64/Release
+SHA256:
+ 14e7555d147675987df80c38488b25b99d5172bf20353592533c2a4a5947b7d2 590 main/binary-amd64/Packages
+ dca8ca300fe7c1ba7268e794c12d5769dd2359b4c5f88650e5bc47537ed5effe 418 main/binary-amd64/Packages.gz
+ 58cf90d5e53ff53c0f03280026be3ddc653ddf9578a0fbc07d90a919238dee38 121 main/binary-amd64/Release
