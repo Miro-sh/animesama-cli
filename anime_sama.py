@@ -38,6 +38,24 @@ HEADERS_BASE = {
     "connection": "keep-alive"
 }
 
+_DEBUG = False
+_IN_TUI = False
+
+def _dbg(msg):
+    if not _DEBUG:
+        return
+    line = f"[DEBUG] {msg}"
+    if _IN_TUI:
+        try:
+            path = os.path.join(os.path.expanduser("~/.local/share/animesama-cli"), "debug.log")
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+        except OSError:
+            pass
+    else:
+        print(line)
+
 MENU_ITEMS = [
     ("Recherche d'anime", "search"),
     ("Historique", "history"),
@@ -67,16 +85,41 @@ local o = {
     op_end = 0,
     ed_start = 0,
     ed_end = 0,
+    episode_length = 0,
 }
 options.read_options(o, "skip_op")
 
 local OP_KEYWORDS = { "op", "opening", "intro", "générique" }
 
+local duration_mismatch_logged = nil
+
+local function segments_match_duration()
+    if o.episode_length <= 0 then
+        return true
+    end
+    local duration = mp.get_property_number("duration")
+    if not duration or duration <= 0 then
+        return true
+    end
+    local ok = math.abs(o.episode_length - duration) <= math.max(90, duration * 0.1)
+    if not ok and duration_mismatch_logged ~= duration then
+        duration_mismatch_logged = duration
+        mp.msg.info(("AniSkip timestamps ignored: episode_length=%.0fs but video is %.0fs"):format(o.episode_length, duration))
+    end
+    return ok
+end
+
 local function has_known_segments()
+    if not segments_match_duration() then
+        return false
+    end
     return (o.op_end > o.op_start) or (o.ed_end > o.ed_start)
 end
 
 local function known_segment(pos)
+    if not segments_match_duration() then
+        return nil
+    end
     if o.op_end > o.op_start and pos >= o.op_start and pos < o.op_end then
         return "op"
     end
@@ -174,7 +217,7 @@ local function auto_skip(_, pos)
     end
 end
 
-local overlay = mp.create_osd_overlay("ass")
+local overlay = mp.create_osd_overlay("ass-events")
 local btn = { x = 0, y = 0, w = 0, h = 0, visible = false, hover = false, label = o.text }
 local click_section_enabled = false
 
@@ -386,13 +429,15 @@ def _resolve_mal_ids(query):
         data = resp.json()
         for category in data.get("categories", []):
             if category.get("type") == "anime":
-                return [
-                    item["id"] for item in category.get("items", [])
-                    if _title_matches(query, item.get("name"))
-                    or item.get("es_score", 0) >= 1.0
-                ][:5]
-    except Exception:
-        pass
+                items = category.get("items", [])
+                matched = [item for item in items if _title_matches(query, item.get("name"))]
+                if not matched:
+                    matched = [item for item in items if item.get("es_score", 0) >= 1.0]
+                results = [(item["id"], item.get("name")) for item in matched[:5]]
+                _dbg(f"AniSkip MAL {query!r} -> {results}")
+                return results
+    except Exception as e:
+        _dbg(f"AniSkip MAL erreur pour {query!r} : {e}")
     return []
 
 
@@ -413,6 +458,9 @@ def _fetch_aniskip_times(mal_id, episode):
             if start is not None and end is not None:
                 times[f"{result.get('skip_type')}_start"] = float(start)
                 times[f"{result.get('skip_type')}_end"] = float(end)
+            length = result.get("episode_length")
+            if length:
+                times["episode_length"] = max(times.get("episode_length", 0), float(length))
         return times or None
     except Exception:
         return None
@@ -428,14 +476,19 @@ def _get_skip_times(anime_name, episode, saison=None):
     cache_key = f"{anime_name}|{saison or ''}|{ep}".lower()
     cache = _load_json_cache("skip_times.json")
     if cache_key in cache:
-        return cache[cache_key]
+        cached = cache[cache_key]
+        if cached is None or "episode_length" in cached:
+            _dbg(f"AniSkip cache {cache_key!r} -> {cached}")
+            return cached
     for query in _skip_queries(anime_name, saison):
-        for mal_id in _resolve_mal_ids(query):
+        for mal_id, mal_name in _resolve_mal_ids(query):
             times = _fetch_aniskip_times(mal_id, ep)
             if times:
+                _dbg(f"AniSkip {anime_name!r} ep{ep} : MAL {mal_id} ({mal_name!r}) -> {times}")
                 cache[cache_key] = times
                 _save_json_cache("skip_times.json", cache)
                 return times
+    _dbg(f"AniSkip : aucun timestamp pour {anime_name!r} ep{ep} (saison={saison!r})")
     cache[cache_key] = None
     _save_json_cache("skip_times.json", cache)
     return None
@@ -454,7 +507,20 @@ def _format_skip_times(times):
 
 
 def _mpv_command(video_url, anime_name=None, episode=None, saison=None, status_cb=None, start=None):
-    cmd = ['mpv', video_url, '--fullscreen']
+    cmd = [
+        'mpv', video_url, '--fullscreen',
+        '--profile=fast',
+        '--hwdec=auto-safe',
+        '--cache=yes',
+        '--demuxer-max-bytes=150MiB',
+        '--demuxer-readahead-secs=20',
+        f'--user-agent={HEADERS_BASE["user-agent"]}',
+        '--stream-lavf-o-add=reconnect=1',
+        '--stream-lavf-o-add=reconnect_streamed=1',
+        '--stream-lavf-o-add=reconnect_on_network_error=1',
+        '--stream-lavf-o-add=reconnect_delay_max=2',
+        '--stream-lavf-o-add=http_persistent=0',
+    ]
     if start:
         cmd.append(f'--start={start:.2f}')
     skip_script = _get_skip_op_script_path()
@@ -468,6 +534,7 @@ def _mpv_command(video_url, anime_name=None, episode=None, saison=None, status_c
             cmd.append(f'--script-opts={opts}')
             if status_cb:
                 status_cb(f"Timestamps trouvés : {_format_skip_times(times)} — skip automatique activé")
+    _dbg(f"Commande mpv : {' '.join(cmd)}")
     return cmd
 
 def _ipc_send(conn, msg):
@@ -523,11 +590,28 @@ def _mpv_ipc_tracker(ipc_target, is_pipe, state):
             pass
 
 def _compute_resume_position(pos, dur):
+    result = pos
     if pos is None or pos < 30:
-        return None
-    if dur and (dur - pos) < max(60.0, dur * 0.05):
-        return None
-    return pos
+        result = None
+    elif dur and (dur - pos) < max(120.0, dur * 0.10):
+        result = None
+    _dbg(f"Reprise : pos={pos} dur={dur} -> {result}")
+    return result
+
+def _format_saison_label(season_name, season_url):
+    saison = season_name or ""
+    if "saison" not in saison.lower():
+        url_lower = (season_url or "").lower()
+        match = re.search(r'/saison(\d+)', url_lower)
+        if match:
+            saison = f"Saison {match.group(1)}"
+        elif "/oav" in url_lower or "/ova" in url_lower:
+            saison = "OAV"
+        elif "/film" in url_lower:
+            saison = "Film"
+        elif "/special" in url_lower:
+            saison = "Special"
+    return saison
 
 def _run_mpv(cmd):
     is_pipe = os.name == "nt"
@@ -655,8 +739,21 @@ def init_db():
     columns = [row[1] for row in cursor.fetchall()]
     if "position" not in columns:
         cursor.execute("ALTER TABLE history ADD COLUMN position REAL")
+    _migrate_saison_labels(cursor)
     conn.commit()
     conn.close()
+
+def _migrate_saison_labels(cursor):
+    cursor.execute("SELECT DISTINCT saison, url FROM history")
+    for saison, url in cursor.fetchall():
+        base, suffix = saison, ""
+        for tag in (" - VOSTFR", " - VF"):
+            if saison.endswith(tag):
+                base, suffix = saison[:-len(tag)], tag
+                break
+        new = _format_saison_label(base, url) + suffix
+        if new != saison:
+            cursor.execute("UPDATE history SET saison = ? WHERE saison = ?", (new, saison))
 
 def add_to_history(anime_name, episode, saison, url, debug=False, position=None):
     try:
@@ -988,6 +1085,20 @@ class AnimeDownloader:
             self.debug_print(f"Exception complète: {str(e)}")
             return [], []
 
+def _is_last_episode(url, episode):
+    match = re.search(r'(\d+)$', episode or '')
+    if not match:
+        return False
+    filever = get_episode_list(url)
+    if not filever:
+        return False
+    episodes = AnimeDownloader(debug=False).get_anime_episode(url, filever)
+    if not episodes:
+        return False
+    ep_keys_int = [int(e) for e in episodes.keys() if e.isdigit()]
+    return bool(ep_keys_int) and int(match.group(1)) == max(ep_keys_int)
+
+
 def display_history(full_check=False):
     init_db()
     conn = sqlite3.connect(get_db_path())
@@ -1001,22 +1112,13 @@ def display_history(full_check=False):
     print("\nHistorique :")
     for i, entry in enumerate(history_entries, 1):
         entry_id, anime_name, episode, saison, url, position = entry
-        is_last = False
-        match = re.search(r'(\d+)$', episode)
-        if match and full_check:
-            current_ep = int(match.group(1))
-            filever = get_episode_list(url)
-            if filever:
-                episodes = AnimeDownloader(debug=False).get_anime_episode(url, filever)
-                if episodes:
-                    ep_keys_int = [int(e) for e in episodes.keys() if e.isdigit()]
-                    if ep_keys_int and current_ep == max(ep_keys_int):
-                        is_last = True
-        line = f"{i}. {anime_name} - {episode} - {saison}"
+        is_last = full_check and position is None and _is_last_episode(url, episode)
+        line = f"{i}. "
+        if is_last:
+            line += "\033[91mFIN\033[0m "
+        line += f"{anime_name} - {episode} - {saison}"
         if position is not None:
             line += f" - reprendre à {_format_position(position)}"
-        if is_last:
-            line += " - Dernier épisode"
         print(line)
     print("0. Retour")
     choix = input("Numéro à relire, ou 'd' suivi du numéro pour supprimer (ex: d2), ou 0 pour retour : ").strip()
@@ -1243,20 +1345,7 @@ def afficher_episodes_saison(url, anime_name, version):
     if video_url.startswith('//'):
         video_url = 'https:' + video_url
     print(f"Lecture de la vidéo avec mpv...")
-    saison = version
-    url_lower = url.lower()
-    if "saison" not in version.lower():
-        match = re.search(r'/saison(\d+)', url_lower)
-        if match:
-            saison = f"Saison {match.group(1)}"
-        elif "/oav" in url_lower or "/ova" in url_lower:
-            saison = "OAV"
-        elif "/film" in url_lower:
-            saison = "Film"
-        elif "/special" in url_lower:
-            saison = "Special"
-        else:
-            saison = version
+    saison = _format_saison_label(version, url)
     if "vostfr" in url.lower():
         version_str = "VOSTFR"
     elif re.search(r'/vf/?', url.lower()):
@@ -1406,13 +1495,7 @@ def cli_main(args):
         video_url = 'https:' + video_url
     
     print(f"Lecture de la vidéo avec mpv...")
-    saison = seasons[selected_season]['name']
-    if "saison" not in saison.lower():
-        match = re.search(r'/saison(\d+)', season_url, re.IGNORECASE)
-        if match:
-            saison = f"Saison {match.group(1)}"
-        else:
-            saison = seasons[selected_season]['name']
+    saison = _format_saison_label(seasons[selected_season]['name'], season_url)
 
     if "vostfr" in season_url.lower():
         version_str = "VOSTFR"
@@ -2009,7 +2092,7 @@ if TEXTUAL_AVAILABLE:
         if video_url.startswith('//'):
             video_url = 'https:' + video_url
         app.set_status(f"Lecture de l'épisode {ep} avec mpv…")
-        saison_str = saison
+        saison_str = _format_saison_label(saison, url)
         version_str = _version_for_url(url)
         if version_str and version_str.lower() not in saison_str.lower():
             saison_str = f"{saison_str} - {version_str}"
@@ -2139,25 +2222,45 @@ if TEXTUAL_AVAILABLE:
     class HistoryPane(Static):
         def compose(self) -> ComposeResult:
             self.entries = get_history_entries()
+            self.finished_ids = set()
             if not self.entries:
                 yield Label("Aucun anime dans l'historique.\nLance un épisode pour commencer.", id="empty")
                 return
-            items = []
-            for entry in self.entries:
-                anime_name, episode, saison = entry[1:4]
-                position = entry[5] if len(entry) > 5 else None
-                label = f" {anime_name}  [#6b6577]{episode}[/]  [italic #6ea8fe]{saison}[/]"
-                if position is not None:
-                    label += f"  [#86d6a2]▶ {_format_position(position)}[/]"
-                items.append(ListItem(Label(label, markup=True)))
+            items = [ListItem(Label(self._entry_label(i), markup=True)) for i in range(len(self.entries))]
             self.list_view = ListView(*items, id="history-list")
             yield self.list_view
+
+        def _entry_label(self, idx):
+            entry = self.entries[idx]
+            anime_name, episode, saison = entry[1:4]
+            position = entry[5] if len(entry) > 5 else None
+            label = "[bold #e06c75]FIN[/] " if entry[0] in self.finished_ids else ""
+            label += f" {anime_name}  [#6b6577]{episode}[/]  [italic #6ea8fe]{saison}[/]"
+            if position is not None:
+                label += f"  [#86d6a2]▶ {_format_position(position)}[/]"
+            return label
+
+        def _update_label(self, idx):
+            if hasattr(self, "list_view") and idx < len(self.list_view.children):
+                self.list_view.children[idx].query_one(Label).update(self._entry_label(idx))
+
+        def _check_finished(self):
+            for idx in range(len(self.entries)):
+                entry = self.entries[idx]
+                position = entry[5] if len(entry) > 5 else None
+                if position is None and _is_last_episode(entry[4], entry[2]):
+                    self.finished_ids.add(entry[0])
+                    try:
+                        self.app.call_from_thread(self._update_label, idx)
+                    except Exception:
+                        pass
 
         def on_mount(self):
             self.border_title = "Historique"
             if hasattr(self, "list_view"):
                 self.list_view.index = 0
                 self.list_view.focus()
+                threading.Thread(target=self._check_finished, daemon=True).start()
 
         def focus_default(self):
             if hasattr(self, "list_view"):
@@ -2209,13 +2312,11 @@ if TEXTUAL_AVAILABLE:
                 self._refresh_entry(idx, target_ep)
 
         def _refresh_entry(self, idx, ep):
-            anime_name, episode, saison, url = self.entries[idx][1:5]
-            label = f" {anime_name}  [#6b6577]Episode {ep}[/]  [italic #6ea8fe]{saison}[/]"
-            position = get_resume_position(anime_name, saison, f"Episode {ep}")
+            entry = self.entries[idx]
+            position = entry[5] if len(entry) > 5 else None
             if position is not None:
-                label += f"  [#86d6a2]▶ {_format_position(position)}[/]"
-            item = self.list_view.children[idx]
-            item.query_one(Label).update(label)
+                self.finished_ids.discard(entry[0])
+            self._update_label(idx)
 
         def key_i(self):
             if not hasattr(self, "list_view") or not hasattr(self, "entries"):
@@ -2280,18 +2381,29 @@ if TEXTUAL_AVAILABLE:
                     day_content = day_sections[i + 1]
                     if current_day in planning:
                         cards = re.findall(
-                            r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<h3[^>]*>([^<]+)</h3>',
+                            r'data-release-ts="(\d+)">\s*<a href="(/catalogue/[^"]+)"[^>]*>.*?(?:<h[23][^>]*>([^<]+)</h[23]>|alt="([^"]*)")',
                             day_content, re.DOTALL
                         )
-                        if not cards:
-                            cards = re.findall(
-                                r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<img[^>]*alt="([^"]*)"',
-                                day_content, re.DOTALL
-                            )
-                        for card_url, card_title in cards:
+                        for ts, card_url, title_h, title_alt in cards:
                             if _is_scan_url(card_url):
                                 continue
-                            planning[current_day].append((card_title.strip(), card_url.strip(), "", ""))
+                            card_title = (title_h or title_alt).strip()
+                            release = time.strftime("%Hh%M", time.localtime(int(ts)))
+                            planning[current_day].append((card_title, card_url.strip(), release, ""))
+                        if not any(planning[current_day]):
+                            cards = re.findall(
+                                r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<h3[^>]*>([^<]+)</h3>',
+                                day_content, re.DOTALL
+                            )
+                            if not cards:
+                                cards = re.findall(
+                                    r'<a href="(/catalogue/[^"]+)"[^>]*>.*?<img[^>]*alt="([^"]*)"',
+                                    day_content, re.DOTALL
+                                )
+                            for card_url, card_title in cards:
+                                if _is_scan_url(card_url):
+                                    continue
+                                planning[current_day].append((card_title.strip(), card_url.strip(), "", ""))
                 return list(planning.keys()), planning
             except Exception:
                 return [], {}
@@ -2312,8 +2424,10 @@ if TEXTUAL_AVAILABLE:
                 selected_day = self.days[idx]
                 animes = self.planning[selected_day]
                 entries = [
-                    (f"{title}{_version_tag(url)}{_season_tag(url)}", (title, url, time, version))
-                    for (title, url, time, version) in animes
+                    (f"[#6b6577]{release}[/]  {title}{_version_tag(url)}{_season_tag(url)}" if release
+                     else f"{title}{_version_tag(url)}{_season_tag(url)}",
+                     (title, url, release, version))
+                    for (title, url, release, version) in animes
                 ]
                 if not entries:
                     self.app.set_status("[#6b6577]Aucun anime ce jour.[/]")
@@ -2329,7 +2443,7 @@ if TEXTUAL_AVAILABLE:
                     return
                 title, url, time, version = col.entries[idx][1]
                 season_url = f"https://{DOMAIN}{url}" if url.startswith('/') else f"https://{DOMAIN}/catalogue/{url}"
-                saison_name = f"{time} - {version}" if time or version else version
+                saison_name = version or None
                 _open_episodes(self, self.zone, col, title, saison_name, season_url)
             else:
                 _handle_column_select(self, self.zone, event)
@@ -2710,6 +2824,8 @@ if TEXTUAL_AVAILABLE:
 
 
     def tui_main(args):
+        global _IN_TUI
+        _IN_TUI = True
         start_screen = None
         if args.planing:
             start_screen = "planning"
@@ -2744,6 +2860,9 @@ def main():
     parser.add_argument("-cf", "--check-final", action="store_true", help="Historique avec vérification du dernier épisode")
     
     args = parser.parse_args()
+
+    global _DEBUG
+    _DEBUG = args.debug
     
     if args.help:
         display_help()
